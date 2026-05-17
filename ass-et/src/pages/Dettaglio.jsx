@@ -4,6 +4,7 @@ import { Badge, Btn, Avatar, Topbar, Icon } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
+import { useImpostazioni } from '../lib/useImpostazioni';
 import { interventiApi, magazzinoApi } from '../lib/api';
 
 const STATUS_TRACK = ['Accettazione', 'Diagnosi', 'Attesa pezzi', 'In lavorazione', 'Pronto', 'Consegnato'];
@@ -17,6 +18,7 @@ export default function Dettaglio() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: t, loading, error, reload } = useData(() => interventiApi.get(id), [id]);
+  const { tecnicoNome, tecnicoTone } = useImpostazioni();
   const [statoModal, setStatoModal] = useState(false);
   const [notaModal, setNotaModal] = useState(false);
   const [pezzoModal, setPezzoModal] = useState(false);
@@ -53,7 +55,7 @@ export default function Dettaglio() {
     setBusy(true);
     try {
       await interventiApi.update(t.id, { stato, stato_tone: tone });
-      await interventiApi.addAttivita(t.id, { autore: 'Marco T.', tipo: 'stato', testo: `Stato → ${stato}` });
+      await interventiApi.addAttivita(t.id, { autore: tecnicoNome, tipo: 'stato', testo: `Stato → ${stato}` });
       setStatoModal(false);
       reload();
     } catch (e) { alert('Errore: ' + e.message); } finally { setBusy(false); }
@@ -136,7 +138,7 @@ export default function Dettaglio() {
                 {attivita.filter(a => ['diagnosi', 'nota', 'accettazione'].includes(a.tipo)).map(a => (
                   <div key={a.id}>
                     <div className="row center" style={{ gap: 8, marginBottom: 4 }}>
-                      <Avatar name={a.autore} tone={a.autore === 'Luca M.' ? 'green' : a.autore === 'Marco T.' ? 'blue' : 'amber'} size="sm" />
+                      <Avatar name={a.autore} tone={a.autore === tecnicoNome ? tecnicoTone : 'gray'} size="sm" />
                       <span style={{ fontWeight: 500, fontSize: 13 }}>{a.autore}</span>
                       <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
                         {new Date(a.created_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · {a.tipo}
@@ -259,7 +261,7 @@ export default function Dettaglio() {
       </div>
 
       {statoModal && <StatoModal current={t.stato} onPick={changeStato} onClose={() => setStatoModal(false)} busy={busy} />}
-      {notaModal && <NotaModal interventoId={t.id} onClose={() => setNotaModal(false)} onSaved={() => { setNotaModal(false); reload(); }} />}
+      {notaModal && <NotaModal interventoId={t.id} autoreDefault={tecnicoNome} onClose={() => setNotaModal(false)} onSaved={() => { setNotaModal(false); reload(); }} />}
       {pezzoModal && <PezzoModal interventoId={t.id} onClose={() => setPezzoModal(false)} onSaved={() => { setPezzoModal(false); reload(); }} />}
       {delModal && <ConfirmDialog message={`Eliminare l'intervento #${t.numero}? Operazione irreversibile.`} onConfirm={doDelete} onClose={() => setDelModal(false)} busy={busy} />}
     </main>
@@ -282,8 +284,8 @@ function StatoModal({ current, onPick, onClose, busy }) {
   );
 }
 
-function NotaModal({ interventoId, onClose, onSaved }) {
-  const [autore, setAutore] = useState('Marco T.');
+function NotaModal({ interventoId, autoreDefault, onClose, onSaved }) {
+  const [autore, setAutore] = useState(autoreDefault || 'Tecnico');
   const [tipo, setTipo] = useState('nota');
   const [testo, setTesto] = useState('');
   const [busy, setBusy] = useState(false);
@@ -298,7 +300,8 @@ function NotaModal({ interventoId, onClose, onSaved }) {
       footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={save}>{busy ? 'Salvo…' : 'Salva nota'}</Btn></>}>
       <Field label="Autore">
         <select className="input" value={autore} onChange={e => setAutore(e.target.value)}>
-          <option>Marco T.</option><option>Luca M.</option><option>Sara R.</option>
+          <option>{autoreDefault || 'Tecnico'}</option>
+          <option>Sistema</option>
         </select>
       </Field>
       <Field label="Tipo">

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge, Btn, Avatar, Topbar, Icon } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
 import { useData } from '../lib/useData';
+import { useImpostazioni } from '../lib/useImpostazioni';
 import { clientiApi, tecniciApi, interventiApi } from '../lib/api';
 
 const DEVICE_TYPES = ['PC fisso', 'Notebook', 'Smartphone', 'Tablet', 'Stampante', 'Altro'];
@@ -11,6 +12,7 @@ export default function Accettazione() {
   const navigate = useNavigate();
   const clienti = useData(() => clientiApi.list(), []);
   const tecnici = useData(() => tecniciApi.list(), []);
+  const { tecnicoNome } = useImpostazioni();
 
   const [clienteMode, setClienteMode] = useState('Esistente');
   const [clienteId, setClienteId] = useState('');
@@ -65,7 +67,7 @@ export default function Accettazione() {
         stato_tone: 'gray',
       });
       await interventiApi.addAttivita(intervento.id, {
-        autore: 'Marco T.', tipo: 'accettazione', testo: 'Intervento accettato al banco.',
+        autore: tecnicoNome, tipo: 'accettazione', testo: 'Intervento accettato al banco.',
       });
       navigate(`/interventi/${intervento.id}`);
     } catch (e) {
@@ -94,7 +96,7 @@ export default function Accettazione() {
         <div className="page-head">
           <div>
             <div className="page-title">Nuova accettazione</div>
-            <div className="page-sub">Il numero intervento sarà assegnato al salvataggio · Operatore: Marco T.</div>
+            <div className="page-sub">Il numero intervento sarà assegnato al salvataggio · Operatore: {tecnicoNome}</div>
           </div>
           <Badge tone="gray" dot={false}>Bozza</Badge>
         </div>

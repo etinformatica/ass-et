@@ -29,6 +29,23 @@ export const tecniciApi = {
   },
 };
 
+// ---------------- IMPOSTAZIONI ----------------
+export const impostazioniApi = {
+  async getAll() {
+    const rows = chk(await supabase.from('impostazioni').select('*'));
+    return Object.fromEntries((rows || []).map(r => [r.chiave, r.valore]));
+  },
+  async set(chiave, valore) {
+    return chk(
+      await supabase
+        .from('impostazioni')
+        .upsert({ chiave, valore, updated_at: new Date().toISOString() }, { onConflict: 'chiave' })
+        .select()
+        .single()
+    );
+  },
+};
+
 // ---------------- MAGAZZINO ----------------
 export const magazzinoApi = {
   async list() {

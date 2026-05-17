@@ -1,17 +1,19 @@
 import { NavLink } from 'react-router-dom';
 import { Icon, Avatar } from './UI';
+import { useImpostazioni } from '../lib/useImpostazioni';
 
 const NAV = [
   { path: '/', label: 'Dashboard', icon: 'home', count: null },
   { path: '/accettazione', label: 'Nuova accettazione', icon: 'plus', count: null, accent: true },
-  { path: '/interventi', label: 'Interventi', icon: 'list', count: '49' },
-  { path: '/clienti', label: 'Clienti', icon: 'users', count: '1.2k' },
-  { path: '/magazzino', label: 'Magazzino', icon: 'box', count: '3', countAccent: true },
+  { path: '/interventi', label: 'Interventi', icon: 'list', count: null },
+  { path: '/clienti', label: 'Clienti', icon: 'users', count: null },
+  { path: '/magazzino', label: 'Magazzino', icon: 'box', count: null },
   { path: '/contabilita', label: 'Contabilità', icon: 'euro', count: null },
-  { path: '/mobile', label: 'App Mobile', icon: 'qr', count: null },
+  { path: '/impostazioni', label: 'Impostazioni', icon: 'settings', count: null },
 ];
 
 export default function Sidebar() {
+  const { tecnicoNome, tecnicoRuolo, tecnicoTone } = useImpostazioni();
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -44,10 +46,10 @@ export default function Sidebar() {
       ))}
 
       <div className="sidebar-user">
-        <Avatar name="Marco T" tone="violet" size="sm" />
+        <Avatar name={tecnicoNome} tone={tecnicoTone} size="sm" />
         <div>
-          <div className="sidebar-user-name">Marco T.</div>
-          <div className="sidebar-user-role">Tecnico · banco</div>
+          <div className="sidebar-user-name">{tecnicoNome}</div>
+          <div className="sidebar-user-role">{tecnicoRuolo}</div>
         </div>
       </div>
     </aside>

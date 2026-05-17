@@ -7,7 +7,7 @@ import Accettazione from './pages/Accettazione';
 import Clienti from './pages/Clienti';
 import Magazzino from './pages/Magazzino';
 import Contabilita from './pages/Contabilita';
-import Mobile from './pages/Mobile';
+import Impostazioni from './pages/Impostazioni';
 
 export default function App() {
   return (
@@ -22,7 +22,7 @@ export default function App() {
           <Route path="/clienti" element={<Clienti />} />
           <Route path="/magazzino" element={<Magazzino />} />
           <Route path="/contabilita" element={<Contabilita />} />
-          <Route path="/mobile" element={<Mobile />} />
+          <Route path="/impostazioni" element={<Impostazioni />} />
         </Routes>
       </div>
     </BrowserRouter>
