@@ -1,0 +1,192 @@
+/* Hi-fi design system — clean, professional gestionale aesthetic
+   Inspired by Linear/Notion. Lives alongside the sketch styles. */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+.hifi {
+  --hf-bg: #fafaf8;
+  --hf-surface: #ffffff;
+  --hf-surface-2: #f5f4f1;
+  --hf-border: #e7e5e0;
+  --hf-border-2: #d9d6d0;
+  --hf-text: #1a1816;
+  --hf-text-2: #4a4843;
+  --hf-text-3: #7a766f;
+  --hf-text-4: #a8a49b;
+  --hf-accent: #d97757;       /* warm clay accent */
+  --hf-accent-soft: #fdf3ee;
+  --hf-blue: #2b6cb0;
+  --hf-blue-soft: #e7f0fb;
+  --hf-green: #2f7d4f;
+  --hf-green-soft: #e6f3eb;
+  --hf-amber: #b88600;
+  --hf-amber-soft: #fbf2dc;
+  --hf-red: #c8412b;
+  --hf-red-soft: #fbe9e6;
+  --hf-violet: #6b4ec8;
+  --hf-violet-soft: #efebfb;
+
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  color: var(--hf-text);
+  background: var(--hf-bg);
+  height: 100%;
+  font-size: 14px;
+  line-height: 1.4;
+  font-feature-settings: 'cv11', 'ss01';
+  letter-spacing: -0.005em;
+}
+
+.hifi * { box-sizing: border-box; }
+.hifi .mono { font-family: 'Geist Mono', ui-monospace, monospace; font-feature-settings: 'zero'; }
+
+.hifi-shell { display:flex; height:100%; }
+
+.hifi-sidebar {
+  width: 232px; flex: none;
+  background: var(--hf-bg);
+  border-right: 1px solid var(--hf-border);
+  display: flex; flex-direction: column;
+  padding: 14px 10px;
+  gap: 4px;
+}
+.hifi-brand { display:flex; align-items:center; gap:8px; padding:6px 8px; margin-bottom:10px; }
+.hifi-brand-mark { width:28px; height:28px; border-radius:7px; background: var(--hf-text); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; letter-spacing:-0.02em; }
+.hifi-brand-name { font-weight:600; font-size:14px; letter-spacing:-0.01em; }
+.hifi-brand-suffix { color: var(--hf-text-3); font-size:11px; font-family:'Geist Mono', monospace; }
+
+.hifi-section-label { font-size:11px; color: var(--hf-text-4); padding: 8px 10px 4px; font-weight:500; text-transform:uppercase; letter-spacing:0.04em; }
+
+.hifi-nav { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; font-size:13px; color: var(--hf-text-2); cursor:pointer; }
+.hifi-nav:hover { background: var(--hf-surface-2); }
+.hifi-nav.active { background: var(--hf-surface); color: var(--hf-text); font-weight:500; box-shadow: 0 0 0 1px var(--hf-border), 0 1px 0 0 rgba(0,0,0,0.02); }
+.hifi-nav-ico { width:16px; height:16px; flex:none; color: var(--hf-text-3); }
+.hifi-nav.active .hifi-nav-ico { color: var(--hf-text); }
+.hifi-nav-count { margin-left:auto; font-family:'Geist Mono', monospace; font-size:11px; color: var(--hf-text-4); }
+.hifi-nav-count.accent { color: var(--hf-accent); }
+
+.hifi-user { margin-top:auto; padding: 10px 8px; border-top:1px solid var(--hf-border); display:flex; align-items:center; gap:8px; }
+.hifi-avatar { width:28px; height:28px; border-radius:50%; background: var(--hf-violet-soft); color: var(--hf-violet); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:12px; }
+.hifi-user-name { font-size:13px; font-weight:500; line-height:1.1; }
+.hifi-user-role { font-size:11px; color: var(--hf-text-3); }
+
+.hifi-main { flex:1; min-width:0; display:flex; flex-direction:column; background: var(--hf-bg); }
+
+.hifi-topbar {
+  display:flex; align-items:center; gap:12px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--hf-border);
+  background: var(--hf-bg);
+}
+.hifi-topbar-title { font-size:14px; font-weight:600; }
+.hifi-topbar-sep { color: var(--hf-text-4); }
+.hifi-topbar-sub { font-size:13px; color: var(--hf-text-3); }
+.hifi-topbar-spacer { flex:1; }
+
+.hifi-search {
+  display:flex; align-items:center; gap:8px;
+  background: var(--hf-surface); border:1px solid var(--hf-border); border-radius:6px;
+  padding: 5px 10px; min-width: 280px; color: var(--hf-text-3); font-size:13px;
+}
+.hifi-search-kbd { margin-left:auto; font-family:'Geist Mono', monospace; font-size:11px; color: var(--hf-text-4); background: var(--hf-bg); border:1px solid var(--hf-border); border-radius:4px; padding:1px 5px; }
+
+.hifi-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  background: var(--hf-surface); border:1px solid var(--hf-border); color: var(--hf-text);
+  font: inherit; font-size:13px; font-weight:500;
+  padding: 5px 10px; border-radius:6px; cursor:pointer; line-height:1.2;
+  transition: background .12s;
+}
+.hifi-btn:hover { background: var(--hf-surface-2); }
+.hifi-btn.primary { background: var(--hf-text); color:#fff; border-color: var(--hf-text); }
+.hifi-btn.primary:hover { background:#000; }
+.hifi-btn.accent { background: var(--hf-accent); color:#fff; border-color: var(--hf-accent); }
+.hifi-btn.ghost { background: transparent; border-color: transparent; color: var(--hf-text-2); }
+.hifi-btn.ghost:hover { background: var(--hf-surface-2); }
+.hifi-btn.sm { padding: 3px 8px; font-size:12px; }
+.hifi-btn.lg { padding: 9px 16px; font-size:14px; }
+
+.hifi-content { flex:1; padding: 22px; display:flex; flex-direction:column; gap: 18px; min-height:0; overflow:auto; }
+
+.hifi-page-head { display:flex; justify-content:space-between; align-items:flex-end; gap: 16px; }
+.hifi-page-title { font-size: 24px; font-weight: 600; letter-spacing:-0.02em; line-height:1.15; }
+.hifi-page-sub { font-size: 13px; color: var(--hf-text-3); margin-top: 4px; }
+
+.hifi-card {
+  background: var(--hf-surface);
+  border: 1px solid var(--hf-border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.hifi-card.compact { padding: 12px 14px; }
+.hifi-card.tinted { background: var(--hf-surface-2); }
+.hifi-card-title { font-size:13px; font-weight:600; color: var(--hf-text-2); }
+.hifi-card-sub { font-size: 12px; color: var(--hf-text-3); }
+
+.hifi-kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.hifi-kpi { padding: 12px 14px; }
+.hifi-kpi-label { font-size: 12px; color: var(--hf-text-3); font-weight:500; }
+.hifi-kpi-value { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height:1.1; margin-top: 2px; }
+.hifi-kpi-trend { display:inline-flex; align-items:center; gap:3px; font-size: 12px; font-weight:500; padding:1px 6px; border-radius:4px; margin-top: 4px; }
+.hifi-kpi-trend.up { background: var(--hf-green-soft); color: var(--hf-green); }
+.hifi-kpi-trend.down { background: var(--hf-red-soft); color: var(--hf-red); }
+.hifi-kpi-trend.flat { background: var(--hf-surface-2); color: var(--hf-text-3); }
+
+/* table */
+.hifi-table { width:100%; border-collapse: separate; border-spacing: 0; font-size:13px; }
+.hifi-table th { text-align:left; font-weight:500; font-size:11px; color: var(--hf-text-3); text-transform:uppercase; letter-spacing:0.04em; padding: 10px 12px; border-bottom: 1px solid var(--hf-border); background: var(--hf-bg); }
+.hifi-table td { padding: 10px 12px; border-bottom: 1px solid var(--hf-border); vertical-align: middle; }
+.hifi-table tr:last-child td { border-bottom: none; }
+.hifi-table tr:hover td { background: var(--hf-surface-2); }
+.hifi-table .strong { font-weight:500; color: var(--hf-text); }
+.hifi-table-wrap { border:1px solid var(--hf-border); border-radius:10px; background: var(--hf-surface); overflow:hidden; }
+
+/* badge / status */
+.hifi-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:500; padding: 2px 8px; border-radius: 999px; line-height:1.4; }
+.hifi-badge .dot { width:6px; height:6px; border-radius:50%; background: currentColor; opacity:0.9; }
+.hifi-badge.gray { background: var(--hf-surface-2); color: var(--hf-text-2); }
+.hifi-badge.blue { background: var(--hf-blue-soft); color: var(--hf-blue); }
+.hifi-badge.green { background: var(--hf-green-soft); color: var(--hf-green); }
+.hifi-badge.amber { background: var(--hf-amber-soft); color: var(--hf-amber); }
+.hifi-badge.red { background: var(--hf-red-soft); color: var(--hf-red); }
+.hifi-badge.violet { background: var(--hf-violet-soft); color: var(--hf-violet); }
+.hifi-badge.accent { background: var(--hf-accent-soft); color: var(--hf-accent); }
+.hifi-badge.solid { background: var(--hf-text); color:#fff; }
+
+.hifi-pill { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding: 3px 8px; border-radius:6px; background: var(--hf-surface-2); border:1px solid var(--hf-border); color: var(--hf-text-2); }
+.hifi-pill.active { background: var(--hf-text); color:#fff; border-color: var(--hf-text); }
+
+/* input */
+.hifi-input { background: var(--hf-surface); border:1px solid var(--hf-border); border-radius:6px; padding: 7px 10px; font: inherit; font-size:13px; width:100%; color: var(--hf-text); }
+.hifi-input:focus { outline:none; border-color: var(--hf-accent); box-shadow: 0 0 0 3px rgba(217,119,87,0.12); }
+.hifi-label { font-size:12px; color: var(--hf-text-3); font-weight:500; margin-bottom:4px; display:block; }
+
+/* form rows */
+.hifi-field-row { display:grid; gap:12px; }
+
+/* avatar circle (initials) */
+.hifi-avatar-sm { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; }
+.hifi-avatar-md { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; }
+
+/* progress bar */
+.hifi-bar { height:6px; background: var(--hf-surface-2); border-radius:3px; overflow:hidden; }
+.hifi-bar > div { height:100%; background: var(--hf-text); border-radius:3px; }
+.hifi-bar.accent > div { background: var(--hf-accent); }
+.hifi-bar.green > div { background: var(--hf-green); }
+
+/* chart bars */
+.hifi-chart-bar { background: var(--hf-text); border-radius: 3px 3px 0 0; position:relative; }
+.hifi-chart-bar.accent { background: var(--hf-accent); }
+.hifi-chart-bar.muted { background: var(--hf-border-2); }
+
+/* tabs */
+.hifi-tabs { display:flex; gap:2px; border-bottom:1px solid var(--hf-border); }
+.hifi-tab { padding: 8px 12px; font-size:13px; font-weight:500; color: var(--hf-text-3); border-bottom: 2px solid transparent; margin-bottom:-1px; cursor:pointer; }
+.hifi-tab.active { color: var(--hf-text); border-bottom-color: var(--hf-text); }
+
+/* checkbox / radio (visual only) */
+.hifi-check { width:14px; height:14px; border:1.4px solid var(--hf-border-2); border-radius:3px; display:inline-block; flex:none; position:relative; background:#fff; vertical-align:-2px; }
+.hifi-check.on { background: var(--hf-text); border-color: var(--hf-text); }
+.hifi-check.on::after { content:''; position:absolute; left:3px; top:1px; width:4px; height:7px; border:solid #fff; border-width:0 1.6px 1.6px 0; transform: rotate(45deg); }
+
+/* simple icons (sized to 16px via currentColor) */
+.hifi-i { width:16px; height:16px; display:inline-block; }
