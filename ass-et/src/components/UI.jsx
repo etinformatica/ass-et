@@ -127,7 +127,7 @@ export function KpiCard({ label, value, trend, trendDir, amber }) {
   );
 }
 
-export function ProgressBar({ pct, accent, green }) {
+export function ProgressBar({ pct, green }) {
   return (
     <div className="bar-track">
       <div className="bar-fill" style={{ width: `${pct}%`, background: green ? 'var(--hf-green)' : 'var(--hf-accent)' }} />

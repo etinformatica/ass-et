@@ -1,11 +1,30 @@
 import { useNavigate } from 'react-router-dom';
-import { Badge, Btn, Avatar, Topbar, Icon } from '../components/UI';
-import { TICKETS, AVATAR_TONES } from '../data';
+import { Badge, Btn, Avatar, Topbar } from '../components/UI';
+import { Loading, ErrorState } from '../components/States';
+import { useData } from '../lib/useData';
+import { interventiApi, magazzinoApi } from '../lib/api';
 
-const PRONTI = TICKETS.filter(t => t.stato === 'Pronto');
+const ATTIVI = ['Accettazione', 'Diagnosi', 'Attesa pezzi', 'Attesa cliente', 'In lavorazione', 'Pronto'];
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const interventi = useData(() => interventiApi.list(), []);
+  const magazzino = useData(() => magazzinoApi.list(), []);
+
+  if (interventi.loading || magazzino.loading)
+    return <main className="main"><Topbar crumbs={['Dashboard']} /><div className="content"><Loading /></div></main>;
+  if (interventi.error)
+    return <main className="main"><Topbar crumbs={['Dashboard']} /><div className="content"><ErrorState error={interventi.error} onRetry={interventi.reload} /></div></main>;
+
+  const list = interventi.data || [];
+  const mag = magazzino.data || [];
+  const attivi = list.filter(i => ATTIVI.includes(i.stato));
+  const pronti = list.filter(i => i.stato === 'Pronto');
+  const attesaPezzi = list.filter(i => i.stato === 'Attesa pezzi');
+  const sottoscorta = mag.filter(a => a.stock < a.min_stock);
+
+  const ricaviStimati = list.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
+  const margineStimato = list.reduce((s, i) => s + Number(i.margine_atteso || 0), 0);
 
   return (
     <main className="main">
@@ -22,12 +41,11 @@ export default function Dashboard() {
       />
 
       <div className="content">
-        {/* page head */}
         <div className="page-head">
           <div>
             <div className="page-title">Buongiorno Marco 👋</div>
             <div className="page-sub">
-              Lunedì 16 maggio 2026 · 7 ritiri da chiamare · 3 articoli sottoscorta
+              {pronti.length} ritiri da chiamare · {sottoscorta.length} articoli sottoscorta
             </div>
           </div>
           <div className="row center">
@@ -37,153 +55,106 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* KPI strip */}
         <div className="kpi-grid kpi-grid-5">
           {[
-            ['Interventi attivi', '49', 'flat', '+3 oggi'],
-            ['Pronti per ritiro', '7', 'up', 'azione'],
-            ['In attesa pezzi', '5', 'down', '>3gg: 2'],
-            ['Incasso oggi', '€ 1.240', 'up', '+18%'],
-            ['Margine mese', '€ 6.480', 'up', '+12%'],
+            ['Interventi attivi', String(attivi.length), 'flat', `${list.length} totali`],
+            ['Pronti per ritiro', String(pronti.length), 'up', 'azione'],
+            ['In attesa pezzi', String(attesaPezzi.length), 'down', 'da seguire'],
+            ['Ricavi stimati', `€ ${ricaviStimati.toLocaleString('it-IT')}`, 'up', 'aperti'],
+            ['Margine atteso', `€ ${margineStimato.toLocaleString('it-IT')}`, 'up', 'aperti'],
           ].map(([l, v, t, d]) => (
             <div key={l} className="card kpi">
               <div className="kpi-label">{l}</div>
               <div className="kpi-value">{v}</div>
-              <span className={`kpi-trend ${t}`}>
-                {t === 'up' ? '↑' : t === 'down' ? '↓' : '•'} {d}
-              </span>
+              <span className={`kpi-trend ${t}`}>{t === 'up' ? '↑' : t === 'down' ? '↓' : '•'} {d}</span>
             </div>
           ))}
         </div>
 
-        {/* main grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, minHeight: 0 }}>
-          {/* interventi table */}
           <div className="card" style={{ padding: 0 }}>
-            <div
-              style={{
-                padding: '14px 16px',
-                borderBottom: '1px solid var(--hf-border)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--hf-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontWeight: 600, fontSize: 14 }}>Interventi recenti</span>
-              <Badge tone="gray" dot={false}>24</Badge>
+              <Badge tone="gray" dot={false}>{list.length}</Badge>
               <div style={{ flex: 1 }} />
-              <div className="tabs" style={{ borderBottom: 'none' }}>
-                <div className="tab active">Tutti</div>
-                <div className="tab">Miei</div>
-                <div className="tab">Pronti</div>
-              </div>
+              <Btn size="sm" onClick={() => navigate('/interventi')}>Vedi tutti →</Btn>
             </div>
             <table className="data-table">
               <thead>
-                <tr>
-                  <th>N°</th>
-                  <th>Cliente</th>
-                  <th>Dispositivo</th>
-                  <th>Stato</th>
-                  <th>Tecnico</th>
-                  <th>Aperto</th>
-                </tr>
+                <tr><th>N°</th><th>Cliente</th><th>Dispositivo</th><th>Stato</th><th>Tecnico</th></tr>
               </thead>
               <tbody>
-                {TICKETS.slice(0, 7).map(r => (
+                {list.slice(0, 8).map(r => (
                   <tr key={r.id} onClick={() => navigate(`/interventi/${r.id}`)}>
-                    <td className="mono" style={{ color: 'var(--hf-text-3)' }}>#{r.id}</td>
-                    <td className="strong">{r.cliente}</td>
+                    <td className="mono" style={{ color: 'var(--hf-text-3)' }}>#{r.numero}</td>
+                    <td className="strong">{r.cliente?.nome || '—'}</td>
                     <td style={{ color: 'var(--hf-text-2)' }}>{r.dispositivo}</td>
-                    <td><Badge tone={r.statoTone}>{r.stato}</Badge></td>
+                    <td><Badge tone={r.stato_tone}>{r.stato}</Badge></td>
                     <td>
-                      <div className="row center" style={{ gap: 6 }}>
-                        <Avatar name={r.tecnico} tone={r.tecnicoTone} size="sm" />
-                        {r.tecnico}
-                      </div>
+                      {r.tecnico ? (
+                        <div className="row center" style={{ gap: 6 }}>
+                          <Avatar name={r.tecnico.nome} tone={r.tecnico.tone} size="sm" />
+                          {r.tecnico.nome}
+                        </div>
+                      ) : <span style={{ color: 'var(--hf-text-4)' }}>—</span>}
                     </td>
-                    <td style={{ color: 'var(--hf-text-3)' }}>{r.aperto}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* right rail */}
           <div className="col" style={{ gap: 16 }}>
-            {/* pronti per ritiro */}
             <div className="card">
               <div className="row between" style={{ marginBottom: 12 }}>
                 <div className="card-title">Pronti per ritiro</div>
-                <Badge tone="green">7 da chiamare</Badge>
+                <Badge tone="green">{pronti.length} da chiamare</Badge>
               </div>
               <div className="col" style={{ gap: 10 }}>
-                {PRONTI.slice(0, 3).map(r => (
-                  <div key={r.id} className="row center" style={{ gap: 10 }}>
-                    <Avatar name={r.cliente} tone={AVATAR_TONES[r.tecnico] || 'gray'} />
+                {pronti.length === 0 && <div style={{ fontSize: 13, color: 'var(--hf-text-3)' }}>Nessun intervento pronto.</div>}
+                {pronti.slice(0, 4).map(r => (
+                  <div key={r.id} className="row center" style={{ gap: 10, cursor: 'pointer' }} onClick={() => navigate(`/interventi/${r.id}`)}>
+                    <Avatar name={r.cliente?.nome || '?'} tone="green" />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{r.cliente}</div>
-                      <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
-                        {r.dispositivo} · #{r.id}
-                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{r.cliente?.nome}</div>
+                      <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>{r.dispositivo} · #{r.numero}</div>
                     </div>
                     <div className="mono" style={{ fontSize: 13, fontWeight: 500 }}>
-                      {r.totaleStimato ? `€ ${r.totaleStimato},00` : '—'}
+                      {r.totale_stimato ? `€ ${r.totale_stimato}` : '—'}
                     </div>
                   </div>
                 ))}
               </div>
-              <div style={{ borderTop: '1px solid var(--hf-border)', marginTop: 12, paddingTop: 12 }}>
-                <Btn size="sm" onClick={() => navigate('/interventi')}>
-                  Vedi tutti i {PRONTI.length} pronti →
-                </Btn>
-              </div>
             </div>
 
-            {/* weekly chart */}
             <div className="card">
               <div className="row between" style={{ marginBottom: 12 }}>
                 <div className="card-title">Incassi settimana</div>
-                <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>€ 4.380</span>
+                <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>stima</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'end', gap: 8, height: 80 }}>
                 {[40, 65, 35, 80, 55, 90, 72].map((h, i) => (
-                  <div
-                    key={i}
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
-                  >
-                    <div
-                      className={`chart-bar ${i === 6 ? 'accent' : ''}`}
-                      style={{ width: '100%', height: `${h}%` }}
-                    />
-                    <span className="mono" style={{ fontSize: 10, color: 'var(--hf-text-3)' }}>
-                      {['L', 'M', 'M', 'G', 'V', 'S', 'D'][i]}
-                    </span>
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div className={`chart-bar ${i === 6 ? 'accent' : ''}`} style={{ width: '100%', height: `${h}%` }} />
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--hf-text-3)' }}>{['L', 'M', 'M', 'G', 'V', 'S', 'D'][i]}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* alert sottoscorta */}
-            <div
-              className="card"
-              style={{ borderColor: 'var(--hf-amber)', background: 'var(--hf-amber-soft)' }}
-            >
+            <div className="card" style={{ borderColor: 'var(--hf-amber)', background: 'var(--hf-amber-soft)' }}>
               <div className="row center" style={{ gap: 6, marginBottom: 8 }}>
                 <span style={{ fontSize: 14 }}>⚠</span>
-                <span style={{ fontWeight: 600, fontSize: 13 }}>3 articoli sottoscorta</span>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>{sottoscorta.length} articoli sottoscorta</span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--hf-text-2)', lineHeight: 1.5 }}>
-                SSD 1TB NVMe (2/5)
-                <br />
-                Pasta term. Kryonaut (1/4)
-                <br />
-                Tastiera MBA M1 IT (0/2)
+              <div style={{ fontSize: 12, color: 'var(--hf-text-2)', lineHeight: 1.6 }}>
+                {sottoscorta.slice(0, 3).map(a => (
+                  <div key={a.id}>{a.nome} ({a.stock}/{a.min_stock})</div>
+                ))}
+                {sottoscorta.length === 0 && <span>Nessun articolo sottoscorta.</span>}
               </div>
               <div style={{ marginTop: 10 }}>
-                <Btn size="sm" tone="accent" onClick={() => navigate('/magazzino')}>
-                  Genera ordine fornitore →
-                </Btn>
+                <Btn size="sm" tone="accent" onClick={() => navigate('/magazzino')}>Vai al magazzino →</Btn>
               </div>
             </div>
           </div>
