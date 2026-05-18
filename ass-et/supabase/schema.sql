@@ -59,7 +59,7 @@ create table clienti (
 -- ---------- MAGAZZINO ----------
 create table magazzino (
   id          uuid primary key default gen_random_uuid(),
-  sku         text unique not null,
+  sku         text unique,
   nome        text not null,
   categoria   text not null default 'Accessori',
   stock       integer not null default 0,
@@ -214,9 +214,10 @@ after insert on carichi_magazzino
 for each row execute function applica_carico_magazzino();
 
 -- ============================================================
--- ROW LEVEL SECURITY — accesso aperto (nessun login)
--- Policy permissive: la chiave anon può fare tutto.
--- Quando aggiungerai l'autenticazione, restringeremo queste policy.
+-- ROW LEVEL SECURITY — accesso ai soli utenti autenticati
+-- Solo chi ha effettuato il login (Supabase Auth) può leggere/scrivere.
+-- La registrazione pubblica va disattivata dalla dashboard Supabase;
+-- gli account dipendenti si creano da Authentication → Users.
 -- ============================================================
 do $$
 declare t text;
@@ -229,8 +230,9 @@ begin
   loop
     execute format('alter table %I enable row level security;', t);
     execute format('drop policy if exists "anon_all" on %I;', t);
+    execute format('drop policy if exists "auth_all" on %I;', t);
     execute format(
-      'create policy "anon_all" on %I for all to anon, authenticated using (true) with check (true);',
+      'create policy "auth_all" on %I for all to authenticated using (true) with check (true);',
       t
     );
   end loop;

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
-import { Icon, Avatar } from './UI';
+import { Icon, Avatar, Btn } from './UI';
 import { useImpostazioni } from '../lib/useImpostazioni';
+import { supabase } from '../lib/supabase';
 
 const NAV = [
   { path: '/', label: 'Dashboard', icon: 'home', count: null },
@@ -47,10 +48,11 @@ export default function Sidebar() {
 
       <div className="sidebar-user">
         <Avatar name={tecnicoNome} tone={tecnicoTone} size="sm" />
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div className="sidebar-user-name">{tecnicoNome}</div>
           <div className="sidebar-user-role">{tecnicoRuolo}</div>
         </div>
+        <Btn size="sm" onClick={() => supabase.auth.signOut()}>Esci</Btn>
       </div>
     </aside>
   );

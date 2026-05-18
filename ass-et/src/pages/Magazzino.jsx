@@ -23,7 +23,7 @@ export default function Magazzino() {
   const sottoscorta = list.filter(a => a.stock < a.min_stock);
   const filtered = list
     .filter(a => cat === 'Tutti' || a.categoria === cat)
-    .filter(a => !q.trim() || a.nome.toLowerCase().includes(q.toLowerCase()) || a.sku.toLowerCase().includes(q.toLowerCase()));
+    .filter(a => !q.trim() || a.nome.toLowerCase().includes(q.toLowerCase()) || (a.sku || '').toLowerCase().includes(q.toLowerCase()));
 
   const valoreCosto = list.reduce((s, a) => s + Number(a.costo_acq) * a.stock, 0);
   const valoreVend = list.reduce((s, a) => s + Number(a.prezzo_vend) * a.stock, 0);
@@ -32,7 +32,7 @@ export default function Magazzino() {
     setBusy(true);
     try {
       const payload = {
-        sku: articolo.sku, nome: articolo.nome, categoria: articolo.categoria,
+        sku: articolo.sku?.trim() || null, nome: articolo.nome, categoria: articolo.categoria,
         min_stock: Number(articolo.min_stock), costo_acq: Number(articolo.costo_acq),
         prezzo_vend: Number(articolo.prezzo_vend), fornitore: articolo.fornitore,
       };
@@ -248,7 +248,6 @@ function ArticoloForm({ initial, onClose, onSave, busy }) {
   const set = (k, v) => setF(s => ({ ...s, [k]: v }));
   const setCar = (k, v) => setC(s => ({ ...s, [k]: v }));
   function submit() {
-    if (!f.sku.trim()) { setErr('Lo SKU è obbligatorio.'); return; }
     if (!f.nome.trim()) { setErr('Il nome articolo è obbligatorio.'); return; }
     setErr(null);
     onSave({ articolo: f, carico: isNew ? c : null });
@@ -265,7 +264,7 @@ function ArticoloForm({ initial, onClose, onSave, busy }) {
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="SKU"><input className="input mono" value={f.sku} onChange={e => set('sku', e.target.value)} autoFocus /></Field>
+        <Field label="SKU (facoltativo)"><input className="input mono" value={f.sku} onChange={e => set('sku', e.target.value)} autoFocus /></Field>
         <Field label="Categoria">
           <select className="input" value={f.categoria} onChange={e => set('categoria', e.target.value)}>
             {CATEGORIE.filter(c => c !== 'Tutti').map(c => <option key={c}>{c}</option>)}

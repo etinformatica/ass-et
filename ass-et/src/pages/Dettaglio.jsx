@@ -89,6 +89,8 @@ export default function Dettaglio() {
         crumbs={['Interventi', `#${t.numero}`]}
         right={
           <>
+            <Btn size="sm" onClick={() => navigate(`/interventi/${t.id}/scontrino`)}>Stampa</Btn>
+            <Btn size="sm" onClick={() => navigate(`/interventi/${t.id}/etichetta`)}>Etichetta</Btn>
             <Btn size="sm" icon="trash" onClick={() => setDelModal(true)}>Elimina</Btn>
             <Btn size="sm" tone="primary" onClick={() => setStatoModal(true)}>Cambia stato</Btn>
           </>
