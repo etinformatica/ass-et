@@ -66,17 +66,17 @@ export default function Contabilita() {
           <>
             <div className="kpi-grid kpi-grid-6">
               {[
-                ['Ricavi stimati', `€ ${ricavi.toLocaleString('it-IT')}`, 'aperti', 'up'],
-                ['Costi pezzi', `€ ${costiPezzi.toLocaleString('it-IT')}`, 'reali', 'flat'],
-                ['Manodopera', '€ 1.250', 'stima', 'flat'],
-                ['Margine', `€ ${margine.toLocaleString('it-IT')}`, 'atteso', 'up'],
-                ['Margine %', `${marginePerc}%`, 'medio', 'up'],
-                ['Interventi', String(list.length), 'totali', 'up'],
-              ].map(([l, v, d, t]) => (
+                ['Ricavi stimati', `€ ${ricavi.toLocaleString('it-IT')}`, 'da interventi'],
+                ['Costi pezzi', `€ ${costiPezzi.toLocaleString('it-IT')}`, 'reali'],
+                ['Margine', `€ ${margine.toLocaleString('it-IT')}`, 'atteso'],
+                ['Margine %', `${marginePerc}%`, 'medio'],
+                ['Interventi', String(list.length), 'totali'],
+                ['Fatturato', `€ ${totFatture.toLocaleString('it-IT')}`, `${fattureList.length} fatture`],
+              ].map(([l, v, d]) => (
                 <div key={l} className="card kpi">
                   <div className="kpi-label">{l}</div>
                   <div className="kpi-value sm">{v}</div>
-                  <span className={`kpi-trend ${t}`}>{t === 'up' ? '↑' : '•'} {d}</span>
+                  <span className="kpi-trend flat">• {d}</span>
                 </div>
               ))}
             </div>
@@ -85,17 +85,15 @@ export default function Contabilita() {
               <div className="card">
                 <div className="row between" style={{ marginBottom: 14 }}>
                   <span style={{ fontWeight: 600, fontSize: 14 }}>Conto economico semplificato</span>
-                  <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>aggiornato dagli interventi</span>
+                  <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>calcolato dai dati reali</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
                   <div style={{ paddingRight: 16, borderRight: '1px solid var(--hf-border)' }}>
                     <div style={{ fontSize: 11, color: 'var(--hf-text-3)', textTransform: 'uppercase', letterSpacing: 0.04, marginBottom: 8, fontWeight: 500 }}>+ Entrate</div>
                     <div className="col" style={{ gap: 8, fontSize: 13 }}>
                       <div className="row between"><span>Riparazioni stimate</span><span className="mono">€ {ricavi.toLocaleString('it-IT')}</span></div>
-                      <div className="row between"><span>Vendita banco</span><span className="mono">€ 2.450</span></div>
-                      <div className="row between"><span>Diagnosi a pagamento</span><span className="mono">€ 350</span></div>
                       <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8, marginTop: 4 }} className="row between">
-                        <span style={{ fontWeight: 600 }}>Totale</span><span style={{ fontWeight: 600, fontSize: 18 }}>€ {(ricavi + 2800).toLocaleString('it-IT')}</span>
+                        <span style={{ fontWeight: 600 }}>Totale</span><span style={{ fontWeight: 600, fontSize: 18 }}>€ {ricavi.toLocaleString('it-IT')}</span>
                       </div>
                     </div>
                   </div>
@@ -103,37 +101,51 @@ export default function Contabilita() {
                     <div style={{ fontSize: 11, color: 'var(--hf-text-3)', textTransform: 'uppercase', letterSpacing: 0.04, marginBottom: 8, fontWeight: 500 }}>− Uscite</div>
                     <div className="col" style={{ gap: 8, fontSize: 13 }}>
                       <div className="row between"><span>Pezzi (a costo)</span><span className="mono">€ {costiPezzi.toLocaleString('it-IT')}</span></div>
-                      <div className="row between"><span>Manodopera tecnici</span><span className="mono">€ 1.250</span></div>
-                      <div className="row between"><span>Spedizioni</span><span className="mono">€ 180</span></div>
                       <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8, marginTop: 4 }} className="row between">
-                        <span style={{ fontWeight: 600 }}>Totale costi</span><span style={{ fontWeight: 600, fontSize: 18 }}>€ {(costiPezzi + 1430).toLocaleString('it-IT')}</span>
+                        <span style={{ fontWeight: 600 }}>Totale costi</span><span style={{ fontWeight: 600, fontSize: 18 }}>€ {costiPezzi.toLocaleString('it-IT')}</span>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div style={{ marginTop: 18, padding: '14px 16px', background: 'var(--hf-accent-soft)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: 600, fontSize: 15 }}>Margine lordo stimato</span>
-                  <span style={{ fontWeight: 600, fontSize: 30, letterSpacing: '-0.02em', color: 'var(--hf-accent)' }}>€ {(ricavi + 2800 - costiPezzi - 1430).toLocaleString('it-IT')}</span>
+                  <span style={{ fontWeight: 600, fontSize: 30, letterSpacing: '-0.02em', color: 'var(--hf-accent)' }}>€ {(ricavi - costiPezzi).toLocaleString('it-IT')}</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--hf-text-3)', marginTop: 10 }}>
+                  Stima basata su totale e costo pezzi degli interventi. Manodopera e altre spese non sono tracciate.
                 </div>
               </div>
 
               <div className="card">
                 <div className="row between" style={{ marginBottom: 12 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>Andamento 12 mesi</span>
-                  <div className="row center" style={{ gap: 8, fontSize: 11 }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, background: 'var(--hf-text)', display: 'inline-block' }} />Ricavi</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, background: 'var(--hf-accent)', display: 'inline-block' }} />Margine</span>
-                  </div>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>Riepilogo fatture</span>
+                  <Badge tone="gray" dot={false}>{fattureList.length} · € {totFatture.toLocaleString('it-IT')}</Badge>
                 </div>
-                <div style={{ position: 'relative', height: 140 }}>
-                  <svg viewBox="0 0 300 120" style={{ width: '100%', height: '100%' }}>
-                    <defs><linearGradient id="fade" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#d97757" stopOpacity="0.25" /><stop offset="100%" stopColor="#d97757" stopOpacity="0" /></linearGradient></defs>
-                    <path d="M 5 85 L 30 80 L 55 78 L 80 70 L 105 60 L 130 56 L 155 50 L 180 48 L 205 42 L 230 38 L 255 30 L 280 22" fill="none" stroke="#1a1816" strokeWidth="2" strokeLinecap="round" />
-                    <path d="M 5 100 L 30 95 L 55 92 L 80 85 L 105 78 L 130 75 L 155 68 L 180 65 L 205 58 L 230 55 L 255 48 L 280 40" fill="none" stroke="#d97757" strokeWidth="2" strokeLinecap="round" />
-                    <path d="M 5 100 L 30 95 L 55 92 L 80 85 L 105 78 L 130 75 L 155 68 L 180 65 L 205 58 L 230 55 L 255 48 L 280 40 L 280 120 L 5 120 Z" fill="url(#fade)" />
-                  </svg>
-                </div>
-                <div className="row between mono" style={{ fontSize: 11, color: 'var(--hf-text-3)', marginTop: 4 }}><span>giu '25</span><span>mag '26</span></div>
+                {(() => {
+                  const byStato = {};
+                  fattureList.forEach(f => {
+                    const k = f.stato || '—';
+                    if (!byStato[k]) byStato[k] = { n: 0, tot: 0, tone: f.stato_tone || 'gray' };
+                    byStato[k].n += 1;
+                    byStato[k].tot += Number(f.importo) || 0;
+                  });
+                  const entries = Object.entries(byStato);
+                  if (entries.length === 0)
+                    return <div style={{ fontSize: 13, color: 'var(--hf-text-3)' }}>Nessuna fattura registrata.</div>;
+                  return (
+                    <div className="col" style={{ gap: 10 }}>
+                      {entries.map(([stato, v], i) => (
+                        <div key={stato} className="row between" style={{ paddingTop: i > 0 ? 10 : 0, borderTop: i > 0 ? '1px solid var(--hf-border)' : 'none' }}>
+                          <div className="row center" style={{ gap: 8 }}>
+                            <Badge tone={v.tone}>{stato}</Badge>
+                            <span style={{ fontSize: 12, color: 'var(--hf-text-3)' }}>{v.n} doc.</span>
+                          </div>
+                          <span className="mono strong">€ {v.tot.toLocaleString('it-IT')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </>
@@ -181,13 +193,24 @@ function FatturaForm({ initial, onClose, onSave, busy }) {
     codice: initial.codice || '', tipo: initial.tipo || 'Fatt. privato', cliente: initial.cliente || '',
     riferimento: initial.riferimento || '', importo: initial.importo ?? 0, scadenza: initial.scadenza || '', stato: initial.stato || 'In termini',
   });
+  const [err, setErr] = useState(null);
   const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+  function submit() {
+    if (!f.codice.trim()) { setErr('Il codice documento è obbligatorio.'); return; }
+    setErr(null);
+    onSave(f);
+  }
   return (
     <Modal
       title={initial.id ? 'Modifica fattura' : 'Nuova fattura'}
       onClose={onClose}
-      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={() => f.codice.trim() && onSave(f)}>{busy ? 'Salvo…' : 'Salva'}</Btn></>}
+      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={submit}>{busy ? 'Salvo…' : 'Salva'}</Btn></>}
     >
+      {err && (
+        <div className="card" style={{ borderColor: 'var(--hf-red)', background: 'var(--hf-red-soft)', color: 'var(--hf-red)', fontSize: 13, padding: '8px 12px' }}>
+          ⚠ {err}
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Field label="Codice"><input className="input mono" value={f.codice} onChange={e => set('codice', e.target.value)} placeholder="F-0143" autoFocus /></Field>
         <Field label="Tipo">

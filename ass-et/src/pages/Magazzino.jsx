@@ -3,7 +3,7 @@ import { Badge, Btn, Topbar, Icon } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
-import { magazzinoApi, ordiniApi } from '../lib/api';
+import { magazzinoApi, ordiniApi, carichiApi } from '../lib/api';
 
 const CATEGORIE = ['Tutti', 'Storage', 'Memorie', 'Display', 'Batterie', 'Tastiere', 'Accessori'];
 const EMPTY = { sku: '', nome: '', categoria: 'Accessori', stock: 0, min_stock: 0, costo_acq: 0, prezzo_vend: 0, fornitore: '' };
@@ -11,9 +11,11 @@ const EMPTY = { sku: '', nome: '', categoria: 'Accessori', stock: 0, min_stock: 
 export default function Magazzino() {
   const mag = useData(() => magazzinoApi.list(), []);
   const ordini = useData(() => ordiniApi.list(), []);
+  const carichi = useData(() => carichiApi.list(), []);
   const [cat, setCat] = useState('Tutti');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
+  const [caricoOpen, setCaricoOpen] = useState(false);
   const [toDelete, setToDelete] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -41,6 +43,15 @@ export default function Magazzino() {
     try { await magazzinoApi.remove(toDelete.id); setToDelete(null); mag.reload(); }
     catch (e) { alert('Errore: ' + e.message); } finally { setBusy(false); }
   }
+  async function saveCarico(c) {
+    setBusy(true);
+    try {
+      await carichiApi.create(c);
+      setCaricoOpen(false);
+      mag.reload();
+      carichi.reload();
+    } catch (e) { alert('Errore: ' + e.message); } finally { setBusy(false); }
+  }
   const margine = a => Number(a.prezzo_vend) ? Math.round((1 - Number(a.costo_acq) / Number(a.prezzo_vend)) * 100) : 0;
 
   return (
@@ -49,7 +60,7 @@ export default function Magazzino() {
         crumbs={['Magazzino']}
         right={
           <>
-            <Btn size="sm">Inventario fisico</Btn>
+            <Btn size="sm" icon="box" onClick={() => setCaricoOpen(true)}>Carico merce</Btn>
             <Btn size="sm" tone="primary" icon="plus" onClick={() => setEditing({ ...EMPTY })}>Nuovo articolo</Btn>
           </>
         }
@@ -160,11 +171,43 @@ export default function Magazzino() {
                 </tbody>
               </table>
             </div>
+
+            <div className="table-wrap">
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--hf-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>Storico carichi merce</span>
+                <Badge tone="gray" dot={false}>{(carichi.data || []).length}</Badge>
+                <div style={{ flex: 1 }} />
+                <Btn size="sm" icon="box" onClick={() => setCaricoOpen(true)}>Nuovo carico</Btn>
+              </div>
+              {carichi.loading ? <Loading /> : (
+                <table className="data-table">
+                  <thead><tr><th>Data</th><th>Articolo</th><th>Q.tà</th><th>€ acq.</th><th>N° fattura</th><th>Fornitore</th></tr></thead>
+                  <tbody>
+                    {(carichi.data || []).map(c => (
+                      <tr key={c.id}>
+                        <td className="mono" style={{ color: 'var(--hf-text-3)' }}>
+                          {c.data_carico ? new Date(c.data_carico).toLocaleDateString('it-IT') : '—'}
+                        </td>
+                        <td><div className="strong">{c.nome || '—'}</div><div className="mono" style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>{c.sku || ''}</div></td>
+                        <td className="strong">+{c.qty}</td>
+                        <td className="mono" style={{ color: 'var(--hf-text-3)' }}>{c.costo_acq != null ? `€ ${c.costo_acq}` : '—'}</td>
+                        <td className="mono">{c.numero_fattura || '—'}</td>
+                        <td style={{ color: 'var(--hf-text-2)' }}>{c.fornitore || '—'}</td>
+                      </tr>
+                    ))}
+                    {(carichi.data || []).length === 0 && (
+                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--hf-text-3)' }}>Nessun carico registrato.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </>
         )}
       </div>
 
       {editing && <ArticoloForm initial={editing} onClose={() => setEditing(null)} onSave={save} busy={busy} />}
+      {caricoOpen && <CaricoModal articoli={list} onClose={() => setCaricoOpen(false)} onSave={saveCarico} busy={busy} />}
       {toDelete && <ConfirmDialog message={`Eliminare l'articolo "${toDelete.nome}" (${toDelete.sku})?`} onConfirm={doDelete} onClose={() => setToDelete(null)} busy={busy} />}
     </main>
   );
@@ -176,13 +219,25 @@ function ArticoloForm({ initial, onClose, onSave, busy }) {
     stock: initial.stock ?? 0, min_stock: initial.min_stock ?? 0,
     costo_acq: initial.costo_acq ?? 0, prezzo_vend: initial.prezzo_vend ?? 0, fornitore: initial.fornitore || '',
   });
+  const [err, setErr] = useState(null);
   const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+  function submit() {
+    if (!f.sku.trim()) { setErr('Lo SKU è obbligatorio.'); return; }
+    if (!f.nome.trim()) { setErr('Il nome articolo è obbligatorio.'); return; }
+    setErr(null);
+    onSave(f);
+  }
   return (
     <Modal
       title={initial.id ? 'Modifica articolo' : 'Nuovo articolo'}
       onClose={onClose}
-      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={() => f.sku.trim() && f.nome.trim() && onSave(f)}>{busy ? 'Salvo…' : 'Salva'}</Btn></>}
+      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={submit}>{busy ? 'Salvo…' : 'Salva'}</Btn></>}
     >
+      {err && (
+        <div className="card" style={{ borderColor: 'var(--hf-red)', background: 'var(--hf-red-soft)', color: 'var(--hf-red)', fontSize: 13, padding: '8px 12px' }}>
+          ⚠ {err}
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Field label="SKU"><input className="input mono" value={f.sku} onChange={e => set('sku', e.target.value)} autoFocus /></Field>
         <Field label="Categoria">
@@ -199,6 +254,77 @@ function ArticoloForm({ initial, onClose, onSave, busy }) {
         <Field label="Prezzo vendita €"><input className="input mono" type="number" value={f.prezzo_vend} onChange={e => set('prezzo_vend', e.target.value)} /></Field>
       </div>
       <Field label="Fornitore"><input className="input" value={f.fornitore} onChange={e => set('fornitore', e.target.value)} /></Field>
+    </Modal>
+  );
+}
+
+function CaricoModal({ articoli, onClose, onSave, busy }) {
+  const oggi = new Date().toISOString().slice(0, 10);
+  const [sel, setSel] = useState('');
+  const [qty, setQty] = useState(1);
+  const [costo, setCosto] = useState('');
+  const [numeroFattura, setNumeroFattura] = useState('');
+  const [fornitore, setFornitore] = useState('');
+  const [data, setData] = useState(oggi);
+  const [err, setErr] = useState(null);
+
+  function pickArticolo(id) {
+    setSel(id);
+    const a = (articoli || []).find(x => x.id === id);
+    if (a) {
+      setCosto(a.costo_acq ?? '');
+      setFornitore(a.fornitore || '');
+    }
+  }
+
+  function submit() {
+    const a = (articoli || []).find(x => x.id === sel);
+    if (!a) { setErr('Seleziona un articolo.'); return; }
+    if (!(Number(qty) > 0)) { setErr('La quantità deve essere maggiore di zero.'); return; }
+    setErr(null);
+    onSave({
+      magazzino_id: a.id,
+      sku: a.sku,
+      nome: a.nome,
+      qty: Number(qty),
+      costo_acq: costo === '' ? null : Number(costo),
+      numero_fattura: numeroFattura.trim() || null,
+      fornitore: fornitore.trim() || null,
+      data_carico: data || oggi,
+    });
+  }
+
+  return (
+    <Modal
+      title="Carico merce"
+      onClose={onClose}
+      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={submit}>{busy ? 'Carico…' : 'Registra carico'}</Btn></>}
+    >
+      {err && (
+        <div className="card" style={{ borderColor: 'var(--hf-red)', background: 'var(--hf-red-soft)', color: 'var(--hf-red)', fontSize: 13, padding: '8px 12px' }}>
+          ⚠ {err}
+        </div>
+      )}
+      {(articoli || []).length === 0 && (
+        <div className="card" style={{ borderColor: 'var(--hf-amber)', background: 'var(--hf-amber-soft)', color: 'var(--hf-text-2)', fontSize: 13, padding: '8px 12px' }}>
+          Nessun articolo in catalogo. Crea prima un articolo con "Nuovo articolo", poi registra il carico.
+        </div>
+      )}
+      <Field label="Articolo">
+        <select className="input" value={sel} onChange={e => pickArticolo(e.target.value)}>
+          <option value="">— seleziona —</option>
+          {(articoli || []).map(a => (
+            <option key={a.id} value={a.id}>{a.nome} ({a.sku}) · stock {a.stock}</option>
+          ))}
+        </select>
+      </Field>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <Field label="Quantità caricata"><input className="input mono" type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} /></Field>
+        <Field label="Costo acquisto € (cad.)"><input className="input mono" type="number" value={costo} onChange={e => setCosto(e.target.value)} placeholder="0" /></Field>
+        <Field label="N° fattura fornitore"><input className="input mono" value={numeroFattura} onChange={e => setNumeroFattura(e.target.value)} placeholder="es. 2026/142" /></Field>
+        <Field label="Data carico"><input className="input mono" type="date" value={data} onChange={e => setData(e.target.value)} /></Field>
+      </div>
+      <Field label="Fornitore"><input className="input" value={fornitore} onChange={e => setFornitore(e.target.value)} /></Field>
     </Modal>
   );
 }
