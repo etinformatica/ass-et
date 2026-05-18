@@ -62,6 +62,21 @@ export const magazzinoApi = {
   },
 };
 
+// ---------------- CARICHI MAGAZZINO ----------------
+export const carichiApi = {
+  async list() {
+    return chk(
+      await supabase
+        .from('carichi_magazzino')
+        .select('*')
+        .order('created_at', { ascending: false })
+    );
+  },
+  async create(c) {
+    return chk(await supabase.from('carichi_magazzino').insert(c).select().single());
+  },
+};
+
 // ---------------- INTERVENTI ----------------
 const INTERVENTO_SELECT = `
   *,

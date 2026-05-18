@@ -17,6 +17,7 @@ create extension if not exists "pgcrypto";
 -- ---------- Pulizia totale (azzera tutto) ----------
 drop table if exists intervento_attivita cascade;
 drop table if exists intervento_pezzi cascade;
+drop table if exists carichi_magazzino cascade;
 drop table if exists fatture cascade;
 drop table if exists ordini_fornitore cascade;
 drop table if exists interventi cascade;
@@ -26,6 +27,7 @@ drop table if exists tecnici cascade;
 drop table if exists impostazioni cascade;
 drop sequence if exists intervento_numero_seq;
 drop function if exists assign_intervento_numero cascade;
+drop function if exists applica_carico_magazzino cascade;
 
 -- ---------- TECNICI ----------
 create table tecnici (
@@ -174,6 +176,41 @@ create table fatture (
   created_at  timestamptz not null default now()
 );
 
+-- ---------- CARICHI MAGAZZINO (storico ingressi merce) ----------
+-- Ogni carico registra n° fattura fornitore, data e quantità.
+-- Un trigger incrementa lo stock dell'articolo collegato.
+create table carichi_magazzino (
+  id             uuid primary key default gen_random_uuid(),
+  magazzino_id   uuid references magazzino(id) on delete set null,
+  sku            text,
+  nome           text,
+  qty            integer not null,
+  costo_acq      numeric(10,2),
+  numero_fattura text,
+  fornitore      text,
+  data_carico    date not null default current_date,
+  created_at     timestamptz not null default now()
+);
+
+create function applica_carico_magazzino()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.magazzino_id is not null then
+    update magazzino
+       set stock = stock + new.qty,
+           costo_acq = coalesce(new.costo_acq, costo_acq)
+     where id = new.magazzino_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_applica_carico
+after insert on carichi_magazzino
+for each row execute function applica_carico_magazzino();
+
 -- ============================================================
 -- ROW LEVEL SECURITY — accesso aperto (nessun login)
 -- Policy permissive: la chiave anon può fare tutto.
@@ -184,7 +221,8 @@ declare t text;
 begin
   foreach t in array array[
     'tecnici','impostazioni','clienti','magazzino','interventi',
-    'intervento_pezzi','intervento_attivita','ordini_fornitore','fatture'
+    'intervento_pezzi','intervento_attivita','ordini_fornitore','fatture',
+    'carichi_magazzino'
   ]
   loop
     execute format('alter table %I enable row level security;', t);
