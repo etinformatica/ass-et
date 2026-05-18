@@ -47,9 +47,9 @@ export default function Dettaglio() {
   const attivita = (t.attivita || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   const pezziVendita = pezzi.reduce((s, p) => s + Number(p.prezzo_vend) * p.qty, 0);
   const pezziCosto = pezzi.reduce((s, p) => s + Number(p.costo_acq) * p.qty, 0);
-  const manodopera = 60;
-  const totale = Number(t.totale_stimato) || pezziVendita + manodopera;
-  const margine = Number(t.margine_atteso) || totale - pezziCosto - manodopera * 0.4;
+  const manodopera = Number(t.manodopera) || 0;
+  const totale = manodopera + pezziVendita;
+  const margine = totale - pezziCosto;
 
   async function changeStato(stato, tone) {
     setBusy(true);
@@ -67,6 +67,20 @@ export default function Dettaglio() {
       await interventiApi.remove(t.id);
       navigate('/interventi');
     } catch (e) { alert('Errore: ' + e.message); setBusy(false); }
+  }
+
+  async function saveCosti(fields) {
+    try {
+      const mano = fields.manodopera != null ? Number(fields.manodopera) || 0 : manodopera;
+      const tot = mano + pezziVendita;
+      await interventiApi.update(t.id, { ...fields, totale_stimato: tot, margine_atteso: tot - pezziCosto });
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
+  }
+
+  async function saveDifettoRiscontrato(testo) {
+    try { await interventiApi.update(t.id, { difetto_riscontrato: testo }); reload(); }
+    catch (e) { alert('Errore: ' + e.message); }
   }
 
   return (
@@ -131,9 +145,18 @@ export default function Dettaglio() {
                 <div className="card-title">Difetto e diagnosi</div>
                 <Btn size="sm" tone="ghost" icon="plus" onClick={() => setNotaModal(true)}>Nota</Btn>
               </div>
-              <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--hf-text-2)', padding: '10px 12px', background: 'var(--hf-surface-2)', borderRadius: 8 }}>
-                {t.difetto || 'Nessun difetto registrato.'}
+              <div style={{ marginBottom: 8 }}>
+                <span className="field-label">Dichiarato dal cliente</span>
+                <div style={{ fontSize: 13, color: 'var(--hf-text-2)', padding: '10px 12px', background: 'var(--hf-surface-2)', borderRadius: 8 }}>
+                  {t.difetto || 'Nessun difetto dichiarato.'}
+                </div>
               </div>
+              <DifettoRiscontrato
+                key={t.difetto_riscontrato || ''}
+                value={t.difetto_riscontrato || ''}
+                onSave={saveDifettoRiscontrato}
+              />
+              <div style={{ height: 6 }} />
               <div className="col" style={{ gap: 14 }}>
                 {attivita.filter(a => ['diagnosi', 'nota', 'accettazione'].includes(a.tipo)).map(a => (
                   <div key={a.id}>
@@ -201,17 +224,26 @@ export default function Dettaglio() {
           <div className="col" style={{ gap: 16 }}>
             <div className="card">
               <div className="card-title" style={{ marginBottom: 10 }}>Riepilogo €</div>
-              <div className="col" style={{ gap: 8, fontSize: 13 }}>
-                <div className="row between"><span style={{ color: 'var(--hf-text-3)' }}>Max autorizzato</span><span className="mono strong">€ {t.max_preventivo},00</span></div>
-                {pezziVendita > 0 && <div className="row between"><span style={{ color: 'var(--hf-text-3)' }}>Pezzi</span><span className="mono">€ {pezziVendita},00</span></div>}
-                <div className="row between"><span style={{ color: 'var(--hf-text-3)' }}>Manodopera</span><span className="mono">€ {manodopera},00</span></div>
+              <div className="col" style={{ gap: 10, fontSize: 13 }}>
+                <div className="row between" style={{ alignItems: 'center' }}>
+                  <span style={{ color: 'var(--hf-text-3)' }}>Max autorizzato</span>
+                  <EditEuro key={`max-${t.max_preventivo}`} value={Number(t.max_preventivo) || 0} onSave={v => saveCosti({ max_preventivo: v })} />
+                </div>
+                <div className="row between" style={{ alignItems: 'center' }}>
+                  <span style={{ color: 'var(--hf-text-3)' }}>Manodopera</span>
+                  <EditEuro key={`man-${manodopera}`} value={manodopera} onSave={v => saveCosti({ manodopera: v })} />
+                </div>
+                <div className="row between"><span style={{ color: 'var(--hf-text-3)' }}>Costo pezzi</span><span className="mono">€ {pezziVendita},00</span></div>
                 <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontWeight: 600 }}>Totale stimato</span>
+                  <span style={{ fontWeight: 600 }}>Totale</span>
                   <span style={{ fontWeight: 600, fontSize: 18 }}>€ {Math.round(totale)},00</span>
                 </div>
                 <div className="row between" style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
-                  <span>Margine atteso</span>
+                  <span>Margine</span>
                   <span>€ {Math.round(margine)},00 · {totale ? Math.round((margine / totale) * 100) : 0}%</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
+                  Max, manodopera e pezzi sono modificabili per rettifiche. Il totale si aggiorna da solo.
                 </div>
               </div>
             </div>
@@ -225,10 +257,17 @@ export default function Dettaglio() {
                   <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>{t.cliente?.tel || '—'}</div>
                 </div>
               </div>
-              <div className="row center" style={{ gap: 6 }}>
-                <Btn size="sm" icon="phone">Chiama</Btn>
-                <Btn size="sm" icon="mail">SMS</Btn>
-              </div>
+              {(() => {
+                const tel = (t.cliente?.tel || '').replace(/\s+/g, '');
+                if (!tel)
+                  return <div style={{ fontSize: 12, color: 'var(--hf-text-3)' }}>Nessun numero per questo cliente.</div>;
+                return (
+                  <div className="row center" style={{ gap: 6 }}>
+                    <a className="btn sm" href={`tel:${tel}`} style={{ textDecoration: 'none' }}><Icon name="phone" />Chiama</a>
+                    <a className="btn sm" href={`sms:${tel}`} style={{ textDecoration: 'none' }}><Icon name="mail" />SMS</a>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="card">
@@ -354,5 +393,50 @@ function PezzoModal({ interventoId, onClose, onSaved }) {
         </>
       )}
     </Modal>
+  );
+}
+
+function EditEuro({ value, onSave }) {
+  const [v, setV] = useState(value ?? 0);
+  function commit() {
+    const n = Number(v) || 0;
+    if (n !== (Number(value) || 0)) onSave(n);
+  }
+  return (
+    <span className="row center" style={{ gap: 4 }}>
+      <span className="mono" style={{ color: 'var(--hf-text-3)' }}>€</span>
+      <input
+        className="input mono"
+        type="number"
+        value={v}
+        onChange={e => setV(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+        style={{ width: 90, textAlign: 'right', padding: '4px 8px' }}
+      />
+    </span>
+  );
+}
+
+function DifettoRiscontrato({ value, onSave }) {
+  const [v, setV] = useState(value || '');
+  const dirty = v !== (value || '');
+  return (
+    <div>
+      <span className="field-label">Riscontrato dal tecnico (diagnosi)</span>
+      <textarea
+        className="input"
+        rows={3}
+        value={v}
+        onChange={e => setV(e.target.value)}
+        placeholder="Difetto effettivamente riscontrato dopo la diagnosi…"
+        style={{ resize: 'vertical', lineHeight: 1.5 }}
+      />
+      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 6 }}>
+        <Btn size="sm" tone={dirty ? 'accent' : ''} onClick={() => dirty && onSave(v.trim())}>
+          {dirty ? 'Salva diagnosi' : 'Salvato'}
+        </Btn>
+      </div>
+    </div>
   );
 }

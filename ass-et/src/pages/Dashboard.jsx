@@ -2,12 +2,14 @@ import { useNavigate } from 'react-router-dom';
 import { Badge, Btn, Avatar, Topbar } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
 import { useData } from '../lib/useData';
+import { useImpostazioni } from '../lib/useImpostazioni';
 import { interventiApi, magazzinoApi } from '../lib/api';
 
 const ATTIVI = ['Accettazione', 'Diagnosi', 'Attesa pezzi', 'Attesa cliente', 'In lavorazione', 'Pronto'];
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { tecnicoNome } = useImpostazioni();
   const interventi = useData(() => interventiApi.list(), []);
   const magazzino = useData(() => magazzinoApi.list(), []);
 
@@ -43,7 +45,7 @@ export default function Dashboard() {
       <div className="content">
         <div className="page-head">
           <div>
-            <div className="page-title">Buongiorno Marco 👋</div>
+            <div className="page-title">Buongiorno {tecnicoNome} 👋</div>
             <div className="page-sub">
               {pronti.length} ritiri da chiamare · {sottoscorta.length} articoli sottoscorta
             </div>

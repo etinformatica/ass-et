@@ -28,14 +28,35 @@ export default function Magazzino() {
   const valoreCosto = list.reduce((s, a) => s + Number(a.costo_acq) * a.stock, 0);
   const valoreVend = list.reduce((s, a) => s + Number(a.prezzo_vend) * a.stock, 0);
 
-  async function save(form) {
+  async function save({ articolo, carico }) {
     setBusy(true);
     try {
-      const payload = { ...form, stock: Number(form.stock), min_stock: Number(form.min_stock), costo_acq: Number(form.costo_acq), prezzo_vend: Number(form.prezzo_vend) };
-      if (editing && editing.id) await magazzinoApi.update(editing.id, payload);
-      else await magazzinoApi.create(payload);
+      const payload = {
+        sku: articolo.sku, nome: articolo.nome, categoria: articolo.categoria,
+        min_stock: Number(articolo.min_stock), costo_acq: Number(articolo.costo_acq),
+        prezzo_vend: Number(articolo.prezzo_vend), fornitore: articolo.fornitore,
+      };
+      if (editing && editing.id) {
+        await magazzinoApi.update(editing.id, { ...payload, stock: Number(articolo.stock) });
+      } else {
+        // Nuovo articolo: stock parte da 0, poi il carico iniziale (via trigger) lo incrementa
+        const created = await magazzinoApi.create({ ...payload, stock: 0 });
+        if (carico && Number(carico.qty) > 0) {
+          await carichiApi.create({
+            magazzino_id: created.id,
+            sku: created.sku,
+            nome: created.nome,
+            qty: Number(carico.qty),
+            costo_acq: carico.costo_acq === '' || carico.costo_acq == null ? Number(articolo.costo_acq) : Number(carico.costo_acq),
+            numero_fattura: carico.numero_fattura?.trim() || null,
+            fornitore: (carico.fornitore || articolo.fornitore || '').trim() || null,
+            data_carico: carico.data_carico || new Date().toISOString().slice(0, 10),
+          });
+        }
+      }
       setEditing(null);
       mag.reload();
+      carichi.reload();
     } catch (e) { alert('Errore: ' + e.message); } finally { setBusy(false); }
   }
   async function doDelete() {
@@ -214,22 +235,27 @@ export default function Magazzino() {
 }
 
 function ArticoloForm({ initial, onClose, onSave, busy }) {
+  const isNew = !initial.id;
+  const oggi = new Date().toISOString().slice(0, 10);
   const [f, setF] = useState({
     sku: initial.sku || '', nome: initial.nome || '', categoria: initial.categoria || 'Accessori',
     stock: initial.stock ?? 0, min_stock: initial.min_stock ?? 0,
     costo_acq: initial.costo_acq ?? 0, prezzo_vend: initial.prezzo_vend ?? 0, fornitore: initial.fornitore || '',
   });
+  // Carico iniziale (solo per nuovo articolo)
+  const [c, setC] = useState({ qty: 0, numero_fattura: '', data_carico: oggi });
   const [err, setErr] = useState(null);
   const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+  const setCar = (k, v) => setC(s => ({ ...s, [k]: v }));
   function submit() {
     if (!f.sku.trim()) { setErr('Lo SKU è obbligatorio.'); return; }
     if (!f.nome.trim()) { setErr('Il nome articolo è obbligatorio.'); return; }
     setErr(null);
-    onSave(f);
+    onSave({ articolo: f, carico: isNew ? c : null });
   }
   return (
     <Modal
-      title={initial.id ? 'Modifica articolo' : 'Nuovo articolo'}
+      title={isNew ? 'Nuovo articolo' : 'Modifica articolo'}
       onClose={onClose}
       footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={submit}>{busy ? 'Salvo…' : 'Salva'}</Btn></>}
     >
@@ -248,12 +274,26 @@ function ArticoloForm({ initial, onClose, onSave, busy }) {
       </div>
       <Field label="Nome articolo"><input className="input" value={f.nome} onChange={e => set('nome', e.target.value)} /></Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="Stock"><input className="input mono" type="number" value={f.stock} onChange={e => set('stock', e.target.value)} /></Field>
+        {!isNew && <Field label="Stock"><input className="input mono" type="number" value={f.stock} onChange={e => set('stock', e.target.value)} /></Field>}
         <Field label="Stock minimo"><input className="input mono" type="number" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} /></Field>
         <Field label="Costo acquisto €"><input className="input mono" type="number" value={f.costo_acq} onChange={e => set('costo_acq', e.target.value)} /></Field>
         <Field label="Prezzo vendita €"><input className="input mono" type="number" value={f.prezzo_vend} onChange={e => set('prezzo_vend', e.target.value)} /></Field>
       </div>
       <Field label="Fornitore"><input className="input" value={f.fornitore} onChange={e => set('fornitore', e.target.value)} /></Field>
+
+      {isNew && (
+        <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 12, marginTop: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Carico iniziale (opzionale)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <Field label="Quantità"><input className="input mono" type="number" min={0} value={c.qty} onChange={e => setCar('qty', e.target.value)} /></Field>
+            <Field label="N° fattura fornitore"><input className="input mono" value={c.numero_fattura} onChange={e => setCar('numero_fattura', e.target.value)} placeholder="es. 2026/142" /></Field>
+            <Field label="Data fattura"><input className="input mono" type="date" value={c.data_carico} onChange={e => setCar('data_carico', e.target.value)} /></Field>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--hf-text-3)', marginTop: 4 }}>
+            Se indichi una quantità, lo stock viene caricato e registrato nello storico carichi con n° fattura e data.
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }
