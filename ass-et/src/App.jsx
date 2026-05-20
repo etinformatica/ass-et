@@ -14,6 +14,7 @@ import StampaEtichetta from './pages/StampaEtichetta';
 import { useSession } from './lib/useSession';
 import { SUPABASE_CONFIGURED } from './lib/supabase';
 import { Loading, ConfigNotice } from './components/States';
+import GlobalSearch from './components/GlobalSearch';
 
 export default function App() {
   return (
@@ -35,27 +36,30 @@ function Gate() {
   if (!session) return <Login />;
 
   return (
-    <Routes>
-      <Route path="/interventi/:id/scontrino" element={<StampaScontrino />} />
-      <Route path="/interventi/:id/etichetta" element={<StampaEtichetta />} />
-      <Route
-        path="*"
-        element={
-          <div className="app-shell">
-            <Sidebar />
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/interventi" element={<Interventi />} />
-              <Route path="/interventi/:id" element={<Dettaglio />} />
-              <Route path="/accettazione" element={<Accettazione />} />
-              <Route path="/clienti" element={<Clienti />} />
-              <Route path="/magazzino" element={<Magazzino />} />
-              <Route path="/contabilita" element={<Contabilita />} />
-              <Route path="/impostazioni" element={<Impostazioni />} />
-            </Routes>
-          </div>
-        }
-      />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/interventi/:id/scontrino" element={<StampaScontrino />} />
+        <Route path="/interventi/:id/etichetta" element={<StampaEtichetta />} />
+        <Route
+          path="*"
+          element={
+            <div className="app-shell">
+              <Sidebar />
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/interventi" element={<Interventi />} />
+                <Route path="/interventi/:id" element={<Dettaglio />} />
+                <Route path="/accettazione" element={<Accettazione />} />
+                <Route path="/clienti" element={<Clienti />} />
+                <Route path="/magazzino" element={<Magazzino />} />
+                <Route path="/contabilita" element={<Contabilita />} />
+                <Route path="/impostazioni" element={<Impostazioni />} />
+              </Routes>
+            </div>
+          }
+        />
+      </Routes>
+      <GlobalSearch />
+    </>
   );
 }

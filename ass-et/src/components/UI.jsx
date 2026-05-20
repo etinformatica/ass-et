@@ -67,13 +67,19 @@ export function Icon({ name, style }) {
   );
 }
 
-export function SearchBox({ placeholder = 'Cerca…' }) {
+export function SearchBox({ placeholder = 'Cerca interventi, clienti, articoli…' }) {
   return (
-    <div className="search-box">
+    <button
+      type="button"
+      className="search-box"
+      onClick={() => window.dispatchEvent(new Event('open-global-search'))}
+      title="Cerca (Ctrl/Cmd+K)"
+      style={{ cursor: 'pointer', textAlign: 'left' }}
+    >
       <Icon name="search" />
-      <span>{placeholder}</span>
+      <span style={{ flex: 1 }}>{placeholder}</span>
       <span className="search-kbd mono">⌘K</span>
-    </div>
+    </button>
   );
 }
 
