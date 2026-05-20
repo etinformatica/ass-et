@@ -165,3 +165,34 @@ export const fattureApi = {
     return chk(await supabase.from('fatture').delete().eq('id', id));
   },
 };
+
+// ---------------- FOTO INTERVENTI ----------------
+// Bucket Storage privato; le URL vengono firmate al volo.
+const FOTO_BUCKET = 'interventi-foto';
+
+export const fotoApi = {
+  async list(interventoId) {
+    const rows = chk(await supabase
+      .from('intervento_foto')
+      .select('*')
+      .eq('intervento_id', interventoId)
+      .order('created_at'));
+    if (rows.length === 0) return [];
+    const signed = await supabase.storage.from(FOTO_BUCKET).createSignedUrls(rows.map(r => r.path), 3600);
+    if (signed.error) throw signed.error;
+    const map = new Map(signed.data.map(s => [s.path, s.signedUrl]));
+    return rows.map(r => ({ ...r, url: map.get(r.path) || null }));
+  },
+  async upload(interventoId, file) {
+    const safe = (file.name || 'foto.jpg').replace(/[^A-Za-z0-9._-]/g, '_');
+    const path = `${interventoId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+    const up = await supabase.storage.from(FOTO_BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
+    if (up.error) throw up.error;
+    return chk(await supabase.from('intervento_foto').insert({ intervento_id: interventoId, path }).select().single());
+  },
+  async remove(row) {
+    const del = await supabase.storage.from(FOTO_BUCKET).remove([row.path]);
+    if (del.error) throw del.error;
+    return chk(await supabase.from('intervento_foto').delete().eq('id', row.id));
+  },
+};

@@ -5,14 +5,8 @@ import { Loading, ErrorState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
 import { useImpostazioni } from '../lib/useImpostazioni';
-import { interventiApi, magazzinoApi } from '../lib/api';
-
-const STATUS_TRACK = ['Accettazione', 'Diagnosi', 'Attesa pezzi', 'In lavorazione', 'Pronto', 'Consegnato'];
-const STATUS_OPTIONS = [
-  ['Accettazione', 'gray'], ['Diagnosi', 'gray'], ['Attesa pezzi', 'amber'],
-  ['Attesa cliente', 'blue'], ['In lavorazione', 'violet'], ['Pronto', 'green'],
-  ['Consegnato', 'gray'], ['Non riparabile', 'red'],
-];
+import { interventiApi, magazzinoApi, fotoApi } from '../lib/api';
+import { STATI, STATUS_TRACK } from '../lib/stati';
 
 export default function Dettaglio() {
   const { id } = useParams();
@@ -206,6 +200,8 @@ export default function Dettaglio() {
               )}
             </div>
 
+            <FotoCard interventoId={t.id} />
+
             <div className="card">
               <div className="card-title" style={{ marginBottom: 12 }}>Attività</div>
               <div className="col" style={{ gap: 10, fontSize: 13 }}>
@@ -309,15 +305,85 @@ export default function Dettaglio() {
   );
 }
 
+function FotoCard({ interventoId }) {
+  const { data, loading, error, reload } = useData(() => fotoApi.list(interventoId), [interventoId]);
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null);
+
+  async function onPick(e) {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    setBusy(true);
+    try {
+      for (const f of files) await fotoApi.upload(interventoId, f);
+      reload();
+    } catch (err) { alert('Errore caricamento: ' + err.message); }
+    finally { setBusy(false); }
+  }
+
+  async function onDelete(row) {
+    if (!confirm('Eliminare questa foto?')) return;
+    setBusy(true);
+    try { await fotoApi.remove(row); reload(); }
+    catch (err) { alert('Errore: ' + err.message); }
+    finally { setBusy(false); }
+  }
+
+  const foto = data || [];
+
+  return (
+    <div className="card">
+      <div className="row between" style={{ marginBottom: 12, alignItems: 'center' }}>
+        <div className="card-title" style={{ margin: 0 }}>Foto</div>
+        <label className="btn sm" style={{ cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+          <Icon name="camera" />
+          {busy ? 'Carico…' : 'Aggiungi foto'}
+          <input type="file" accept="image/*" multiple capture="environment" disabled={busy} onChange={onPick} style={{ display: 'none' }} />
+        </label>
+      </div>
+      {loading && <Loading />}
+      {error && <ErrorState error={error} onRetry={reload} />}
+      {!loading && !error && foto.length === 0 && (
+        <div style={{ fontSize: 13, color: 'var(--hf-text-3)' }}>Nessuna foto. Tocca "Aggiungi foto" per scattare o scegliere dalla galleria.</div>
+      )}
+      {!loading && !error && foto.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+          {foto.map(f => (
+            <div key={f.id} style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--hf-border)', background: 'var(--hf-surface-2)' }}>
+              {f.url ? (
+                <img src={f.url} alt="" onClick={() => setPreview(f.url)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in', display: 'block' }} />
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--hf-text-4)', fontSize: 11 }}>—</div>
+              )}
+              <button onClick={() => onDelete(f)} disabled={busy} title="Elimina"
+                style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="trash" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {preview && (
+        <div onClick={() => setPreview(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 20 }}>
+          <img src={preview} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatoModal({ current, onPick, onClose, busy }) {
   return (
     <Modal title="Cambia stato intervento" onClose={onClose} width={420}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {STATUS_OPTIONS.map(([s, tone]) => (
-          <button key={s} className="btn" disabled={busy}
-            style={{ borderColor: s === current ? 'var(--hf-accent)' : undefined, background: s === current ? 'var(--hf-accent-soft)' : undefined }}
-            onClick={() => onPick(s, tone)}>
-            <Badge tone={tone}>{s}</Badge>
+        {STATI.map(({ stato, tone }) => (
+          <button key={stato} className="btn" disabled={busy}
+            style={{ borderColor: stato === current ? 'var(--hf-accent)' : undefined, background: stato === current ? 'var(--hf-accent-soft)' : undefined }}
+            onClick={() => onPick(stato, tone)}>
+            <Badge tone={tone}>{stato}</Badge>
           </button>
         ))}
       </div>

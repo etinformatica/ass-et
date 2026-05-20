@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Btn, Avatar, Topbar } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
@@ -6,18 +7,33 @@ import { useImpostazioni } from '../lib/useImpostazioni';
 import { interventiApi, magazzinoApi } from '../lib/api';
 
 const ATTIVI = ['Accettazione', 'Diagnosi', 'Attesa pezzi', 'Attesa cliente', 'In lavorazione', 'Pronto'];
+const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+function inRange(dateStr, range, now) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  if (range === 'oggi') return d.toDateString() === now.toDateString();
+  if (range === 'settimana') {
+    const start = new Date(now); start.setDate(now.getDate() - 6); start.setHours(0, 0, 0, 0);
+    return d >= start;
+  }
+  if (range === 'mese') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  return true;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { tecnicoNome } = useImpostazioni();
   const interventi = useData(() => interventiApi.list(), []);
   const magazzino = useData(() => magazzinoApi.list(), []);
+  const [range, setRange] = useState('settimana');
 
   if (interventi.loading || magazzino.loading)
     return <main className="main"><Topbar crumbs={['Dashboard']} /><div className="content"><Loading /></div></main>;
   if (interventi.error)
     return <main className="main"><Topbar crumbs={['Dashboard']} /><div className="content"><ErrorState error={interventi.error} onRetry={interventi.reload} /></div></main>;
 
+  const now = new Date();
   const list = interventi.data || [];
   const mag = magazzino.data || [];
   const attivi = list.filter(i => ATTIVI.includes(i.stato));
@@ -25,8 +41,13 @@ export default function Dashboard() {
   const attesaPezzi = list.filter(i => i.stato === 'Attesa pezzi');
   const sottoscorta = mag.filter(a => a.stock < a.min_stock);
 
-  const ricaviStimati = list.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
-  const margineStimato = list.reduce((s, i) => s + Number(i.margine_atteso || 0), 0);
+  const periodList = list.filter(i => inRange(i.created_at, range, now));
+  const ricaviStimati = periodList.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
+  const margineStimato = periodList.reduce((s, i) => s + Number(i.margine_atteso || 0), 0);
+
+  const rangeLabel = range === 'oggi' ? 'oggi'
+    : range === 'settimana' ? 'ultimi 7 giorni'
+    : MESI[now.getMonth()].toLowerCase();
 
   return (
     <main className="main">
@@ -51,9 +72,9 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="row center">
-            <Btn size="sm">Oggi</Btn>
-            <Btn size="sm" tone="primary">Questa settimana</Btn>
-            <Btn size="sm">Maggio</Btn>
+            <Btn size="sm" tone={range === 'oggi' ? 'primary' : undefined} onClick={() => setRange('oggi')}>Oggi</Btn>
+            <Btn size="sm" tone={range === 'settimana' ? 'primary' : undefined} onClick={() => setRange('settimana')}>Questa settimana</Btn>
+            <Btn size="sm" tone={range === 'mese' ? 'primary' : undefined} onClick={() => setRange('mese')}>{MESI[now.getMonth()]}</Btn>
           </div>
         </div>
 
@@ -62,8 +83,8 @@ export default function Dashboard() {
             ['Interventi attivi', String(attivi.length), 'flat', `${list.length} totali`],
             ['Pronti per ritiro', String(pronti.length), 'up', 'azione'],
             ['In attesa pezzi', String(attesaPezzi.length), 'down', 'da seguire'],
-            ['Ricavi stimati', `€ ${ricaviStimati.toLocaleString('it-IT')}`, 'up', 'aperti'],
-            ['Margine atteso', `€ ${margineStimato.toLocaleString('it-IT')}`, 'up', 'aperti'],
+            ['Ricavi stimati', `€ ${ricaviStimati.toLocaleString('it-IT')}`, 'up', rangeLabel],
+            ['Margine atteso', `€ ${margineStimato.toLocaleString('it-IT')}`, 'up', rangeLabel],
           ].map(([l, v, t, d]) => (
             <div key={l} className="card kpi">
               <div className="kpi-label">{l}</div>
@@ -76,8 +97,8 @@ export default function Dashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, minHeight: 0 }}>
           <div className="card" style={{ padding: 0 }}>
             <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--hf-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Interventi recenti</span>
-              <Badge tone="gray" dot={false}>{list.length}</Badge>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>Interventi · {rangeLabel}</span>
+              <Badge tone="gray" dot={false}>{periodList.length}</Badge>
               <div style={{ flex: 1 }} />
               <Btn size="sm" onClick={() => navigate('/interventi')}>Vedi tutti →</Btn>
             </div>
@@ -86,7 +107,10 @@ export default function Dashboard() {
                 <tr><th>N°</th><th>Cliente</th><th>Dispositivo</th><th>Stato</th><th>Tecnico</th></tr>
               </thead>
               <tbody>
-                {list.slice(0, 8).map(r => (
+                {periodList.length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: 'var(--hf-text-3)', fontSize: 13 }}>Nessun intervento nel periodo selezionato.</td></tr>
+                )}
+                {periodList.slice(0, 8).map(r => (
                   <tr key={r.id} onClick={() => navigate(`/interventi/${r.id}`)}>
                     <td className="mono" style={{ color: 'var(--hf-text-3)' }}>#{r.numero}</td>
                     <td className="strong">{r.cliente?.nome || '—'}</td>

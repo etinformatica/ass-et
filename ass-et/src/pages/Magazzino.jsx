@@ -167,7 +167,7 @@ export default function Magazzino() {
                 <div style={{ flex: 1 }} />
                 <div className="search-box" style={{ minWidth: 240 }}>
                   <Icon name="search" />
-                  <input value={q} onChange={e => setQ(e.target.value)} placeholder="SKU, nome…" style={{ border: 'none', background: 'transparent', outline: 'none', font: 'inherit', fontSize: 13, width: '100%' }} />
+                  <input value={q} onChange={e => setQ(e.target.value)} placeholder="SKU, nome…" style={{ border: 'none', background: 'transparent', outline: 'none', font: 'inherit', fontSize: 13, color: 'var(--hf-text)', width: '100%' }} />
                 </div>
               </div>
               <table className="data-table">

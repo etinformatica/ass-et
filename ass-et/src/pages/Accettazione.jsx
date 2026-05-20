@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Badge, Btn, Avatar, Topbar, Icon } from '../components/UI';
+import { Badge, Btn, Avatar, Topbar } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
 import { useData } from '../lib/useData';
 import { useImpostazioni } from '../lib/useImpostazioni';
@@ -211,14 +211,9 @@ export default function Accettazione() {
             </div>
 
             <div className="card">
-              <div className="card-title" style={{ marginBottom: 10 }}>Foto</div>
-              <div className="row center" style={{ gap: 8 }}>
-                {['fronte', 'retro'].map(s => (
-                  <div key={s} style={{ width: 80, height: 80, borderRadius: 6, background: 'var(--hf-surface-2)', border: '1px solid var(--hf-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--hf-text-4)', fontSize: 11 }}>{s}</div>
-                ))}
-                <div style={{ width: 80, height: 80, borderRadius: 6, border: '1.5px dashed var(--hf-border-2)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--hf-text-3)', fontSize: 11, gap: 4 }}>
-                  <Icon name="camera" />+ foto
-                </div>
+              <div className="card-title" style={{ marginBottom: 8 }}>Foto</div>
+              <div style={{ fontSize: 12, color: 'var(--hf-text-3)', lineHeight: 1.5 }}>
+                Salva prima l'accettazione, poi apri l'intervento appena creato per scattare o caricare le foto del dispositivo.
               </div>
             </div>
 

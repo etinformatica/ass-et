@@ -15,6 +15,7 @@
 create extension if not exists "pgcrypto";
 
 -- ---------- Pulizia totale (azzera tutto) ----------
+drop table if exists intervento_foto cascade;
 drop table if exists intervento_attivita cascade;
 drop table if exists intervento_pezzi cascade;
 drop table if exists carichi_magazzino cascade;
@@ -213,6 +214,17 @@ create trigger trg_applica_carico
 after insert on carichi_magazzino
 for each row execute function applica_carico_magazzino();
 
+-- ---------- FOTO INTERVENTI ----------
+-- Le immagini risiedono nel bucket Storage "interventi-foto" (privato).
+-- Qui tracciamo solo il path; la URL viene generata firmata dal client.
+create table intervento_foto (
+  id            uuid primary key default gen_random_uuid(),
+  intervento_id uuid not null references interventi(id) on delete cascade,
+  path          text not null,
+  created_at    timestamptz not null default now()
+);
+create index idx_intervento_foto_intervento on intervento_foto(intervento_id);
+
 -- ============================================================
 -- ROW LEVEL SECURITY — accesso ai soli utenti autenticati
 -- Solo chi ha effettuato il login (Supabase Auth) può leggere/scrivere.
@@ -225,7 +237,7 @@ begin
   foreach t in array array[
     'tecnici','impostazioni','clienti','magazzino','interventi',
     'intervento_pezzi','intervento_attivita','ordini_fornitore','fatture',
-    'carichi_magazzino'
+    'carichi_magazzino','intervento_foto'
   ]
   loop
     execute format('alter table %I enable row level security;', t);

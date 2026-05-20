@@ -4,6 +4,7 @@ import { Loading, ErrorState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
 import { interventiApi, fattureApi } from '../lib/api';
+import { STATO_DA_INCASSARE, STATO_INCASSATO } from '../lib/stati';
 
 const TABS = ['Vista mese · P&L', 'Fatture & corrispettivi'];
 const EMPTY = { codice: '', tipo: 'Fatt. privato', cliente: '', riferimento: '', importo: 0, scadenza: '', stato: 'In termini', stato_tone: 'green' };
@@ -18,11 +19,16 @@ export default function Contabilita() {
   const [busy, setBusy] = useState(false);
 
   const list = interventi.data || [];
-  const chiusi = list.filter(i => ['Consegnato', 'Pronto'].includes(i.stato));
+  const chiusi = list.filter(i => ['Consegnato', 'Pronto', 'Incassato'].includes(i.stato));
   const ricavi = list.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
   const costiPezzi = list.reduce((s, i) => s + (i.pezzi || []).reduce((a, p) => a + Number(p.costo_acq) * p.qty, 0), 0);
   const margine = list.reduce((s, i) => s + Number(i.margine_atteso || 0), 0);
   const marginePerc = ricavi ? Math.round((margine / ricavi) * 100) : 0;
+
+  const daIncassareList = list.filter(i => i.stato === STATO_DA_INCASSARE);
+  const incassatoList   = list.filter(i => i.stato === STATO_INCASSATO);
+  const daIncassare = daIncassareList.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
+  const incassato   = incassatoList.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
 
   async function save(form) {
     setBusy(true);
@@ -64,6 +70,29 @@ export default function Contabilita() {
 
         {!interventi.loading && !interventi.error && tab === 'Vista mese · P&L' && (
           <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="card" style={{ borderColor: 'var(--hf-amber)', background: 'var(--hf-amber-soft)' }}>
+                <div className="row between" style={{ marginBottom: 6 }}>
+                  <span className="kpi-label" style={{ color: 'var(--hf-amber)' }}>Da incassare</span>
+                  <Badge tone="amber">{daIncassareList.length} interventi</Badge>
+                </div>
+                <div className="kpi-value">€ {daIncassare.toLocaleString('it-IT')}</div>
+                <div style={{ fontSize: 11, color: 'var(--hf-text-3)', marginTop: 4 }}>
+                  Interventi consegnati ma non ancora pagati.
+                </div>
+              </div>
+              <div className="card" style={{ borderColor: 'var(--hf-green)', background: 'var(--hf-green-soft)' }}>
+                <div className="row between" style={{ marginBottom: 6 }}>
+                  <span className="kpi-label" style={{ color: 'var(--hf-green)' }}>Incassato</span>
+                  <Badge tone="green">{incassatoList.length} interventi</Badge>
+                </div>
+                <div className="kpi-value">€ {incassato.toLocaleString('it-IT')}</div>
+                <div style={{ fontSize: 11, color: 'var(--hf-text-3)', marginTop: 4 }}>
+                  Pagamenti già ricevuti dai clienti.
+                </div>
+              </div>
+            </div>
+
             <div className="kpi-grid kpi-grid-6">
               {[
                 ['Ricavi stimati', `€ ${ricavi.toLocaleString('it-IT')}`, 'da interventi'],

@@ -5,8 +5,9 @@ import { Loading, ErrorState, EmptyState } from '../components/States';
 import { ConfirmDialog } from '../components/Modal';
 import { useData } from '../lib/useData';
 import { interventiApi } from '../lib/api';
+import { STATI, STATO_TONE } from '../lib/stati';
 
-const FILTERS = ['Tutti', 'Accettazione', 'Diagnosi', 'Attesa pezzi', 'Attesa cliente', 'In lavorazione', 'Pronto', 'Consegnato', 'Non riparabile'];
+const FILTERS = ['Tutti', ...STATI.map(s => s.stato)];
 
 export default function Interventi() {
   const navigate = useNavigate();
@@ -42,6 +43,13 @@ export default function Interventi() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function changeStato(id, stato) {
+    try {
+      await interventiApi.update(id, { stato, stato_tone: STATO_TONE[stato] || 'gray' });
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
   }
 
   return (
@@ -113,7 +121,7 @@ export default function Interventi() {
           filtered.length === 0 ? (
             <div className="card"><EmptyState title="Nessun intervento" sub="Crea la prima accettazione." action={<Btn tone="primary" icon="plus" onClick={() => navigate('/accettazione')}>Nuova accettazione</Btn>} /></div>
           ) : view === 'Tabella' ? (
-            <TableView tickets={filtered} navigate={navigate} onDelete={setToDelete} total={list.length} />
+            <TableView tickets={filtered} navigate={navigate} onDelete={setToDelete} onStato={changeStato} total={list.length} />
           ) : (
             <KanbanView tickets={filtered} navigate={navigate} />
           )
@@ -132,7 +140,28 @@ export default function Interventi() {
   );
 }
 
-function TableView({ tickets, navigate, onDelete, total }) {
+function StatoCell({ value, onChange }) {
+  const tone = STATO_TONE[value] || 'gray';
+  return (
+    <select
+      className={`badge ${tone}`}
+      value={value}
+      onClick={e => e.stopPropagation()}
+      onChange={e => onChange(e.target.value)}
+      style={{
+        appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+        border: 'none', padding: '2px 22px 2px 10px', borderRadius: 999, cursor: 'pointer',
+        fontSize: 11, fontWeight: 500, lineHeight: 1.4,
+        backgroundImage: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'10\' viewBox=\'0 0 10 10\'><path d=\'M2 4l3 3 3-3\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\'/></svg>")',
+        backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center',
+      }}
+    >
+      {STATI.map(s => <option key={s.stato} value={s.stato}>{s.stato}</option>)}
+    </select>
+  );
+}
+
+function TableView({ tickets, navigate, onDelete, onStato, total }) {
   return (
     <div className="table-wrap">
       <table className="data-table">
@@ -151,7 +180,7 @@ function TableView({ tickets, navigate, onDelete, total }) {
               <td style={{ color: 'var(--hf-text-3)', fontSize: 12, maxWidth: 180 }}>
                 {(r.difetto || '').substring(0, 48)}{(r.difetto || '').length > 48 ? '…' : ''}
               </td>
-              <td><Badge tone={r.stato_tone}>{r.stato}</Badge></td>
+              <td><StatoCell value={r.stato} onChange={s => onStato(r.id, s)} /></td>
               <td>
                 {r.tecnico ? (
                   <div className="row center" style={{ gap: 6 }}>
@@ -177,12 +206,7 @@ function TableView({ tickets, navigate, onDelete, total }) {
   );
 }
 
-const KANBAN_COLS = [
-  { id: 'Accettazione', tone: 'gray' }, { id: 'Diagnosi', tone: 'gray' },
-  { id: 'Attesa pezzi', tone: 'amber' }, { id: 'Attesa cliente', tone: 'blue' },
-  { id: 'In lavorazione', tone: 'violet' }, { id: 'Pronto', tone: 'green' },
-  { id: 'Consegnato', tone: 'gray' }, { id: 'Non riparabile', tone: 'red' },
-];
+const KANBAN_COLS = STATI.map(s => ({ id: s.stato, tone: s.tone }));
 
 function KanbanView({ tickets, navigate }) {
   return (
