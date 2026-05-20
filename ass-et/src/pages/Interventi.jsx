@@ -141,23 +141,45 @@ export default function Interventi() {
 }
 
 function StatoCell({ value, onChange }) {
+  const [open, setOpen] = useState(false);
   const tone = STATO_TONE[value] || 'gray';
   return (
-    <select
-      className={`badge ${tone}`}
-      value={value}
-      onClick={e => e.stopPropagation()}
-      onChange={e => onChange(e.target.value)}
-      style={{
-        appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
-        border: 'none', padding: '2px 22px 2px 10px', borderRadius: 999, cursor: 'pointer',
-        fontSize: 11, fontWeight: 500, lineHeight: 1.4,
-        backgroundImage: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'10\' viewBox=\'0 0 10 10\'><path d=\'M2 4l3 3 3-3\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1.5\' stroke-linecap=\'round\'/></svg>")',
-        backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center',
-      }}
-    >
-      {STATI.map(s => <option key={s.stato} value={s.stato}>{s.stato}</option>)}
-    </select>
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button"
+        className={`badge ${tone}`}
+        onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+        title="Clicca per cambiare stato"
+        style={{ border: '1px solid transparent', cursor: 'pointer', padding: '3px 22px 3px 10px', font: 'inherit', fontSize: 11, fontWeight: 500 }}
+      >
+        {value}
+        <span style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 9, opacity: 0.7 }}>▼</span>
+      </button>
+      {open && (
+        <>
+          <div onClick={e => { e.stopPropagation(); setOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 60,
+              background: 'var(--hf-surface)', border: '1px solid var(--hf-border)', borderRadius: 8,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 6, minWidth: 170 }}
+          >
+            {STATI.map(s => (
+              <button
+                key={s.stato}
+                type="button"
+                onClick={() => { onChange(s.stato); setOpen(false); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 6px',
+                  background: s.stato === value ? 'var(--hf-surface-2)' : 'transparent',
+                  border: 'none', borderRadius: 5, cursor: 'pointer' }}
+              >
+                <Badge tone={s.tone}>{s.stato}</Badge>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

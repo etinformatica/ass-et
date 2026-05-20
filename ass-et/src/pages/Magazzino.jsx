@@ -23,7 +23,16 @@ export default function Magazzino() {
   const sottoscorta = list.filter(a => a.stock < a.min_stock);
   const filtered = list
     .filter(a => cat === 'Tutti' || a.categoria === cat)
-    .filter(a => !q.trim() || a.nome.toLowerCase().includes(q.toLowerCase()) || (a.sku || '').toLowerCase().includes(q.toLowerCase()));
+    .filter(a => {
+      const s = q.trim().toLowerCase();
+      if (!s) return true;
+      return (
+        (a.nome || '').toLowerCase().includes(s) ||
+        (a.sku || '').toLowerCase().includes(s) ||
+        (a.categoria || '').toLowerCase().includes(s) ||
+        (a.fornitore || '').toLowerCase().includes(s)
+      );
+    });
 
   const valoreCosto = list.reduce((s, a) => s + Number(a.costo_acq) * a.stock, 0);
   const valoreVend = list.reduce((s, a) => s + Number(a.prezzo_vend) * a.stock, 0);
@@ -31,10 +40,12 @@ export default function Magazzino() {
   async function save({ articolo, carico }) {
     setBusy(true);
     try {
+      const up = v => (typeof v === 'string' ? v.toUpperCase() : v);
       const payload = {
-        sku: articolo.sku?.trim() || null, nome: articolo.nome, categoria: articolo.categoria,
+        sku: articolo.sku?.trim() ? up(articolo.sku.trim()) : null,
+        nome: up(articolo.nome), categoria: articolo.categoria,
         min_stock: Number(articolo.min_stock), costo_acq: Number(articolo.costo_acq),
-        prezzo_vend: Number(articolo.prezzo_vend), fornitore: articolo.fornitore,
+        prezzo_vend: Number(articolo.prezzo_vend), fornitore: up(articolo.fornitore),
       };
       if (editing && editing.id) {
         await magazzinoApi.update(editing.id, { ...payload, stock: Number(articolo.stock) });
@@ -165,10 +176,19 @@ export default function Magazzino() {
                 <span style={{ fontWeight: 600, fontSize: 14 }}>Catalogo articoli</span>
                 <Badge tone="gray" dot={false}>{filtered.length}</Badge>
                 <div style={{ flex: 1 }} />
-                <div className="search-box" style={{ minWidth: 240 }}>
+                <label className="search-box" style={{ minWidth: 260, cursor: 'text' }}>
                   <Icon name="search" />
-                  <input value={q} onChange={e => setQ(e.target.value)} placeholder="SKU, nome…" style={{ border: 'none', background: 'transparent', outline: 'none', font: 'inherit', fontSize: 13, color: 'var(--hf-text)', width: '100%' }} />
-                </div>
+                  <input
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                    placeholder="Cerca SKU, nome, categoria, fornitore…"
+                    autoComplete="off"
+                    style={{ border: 'none', background: 'transparent', outline: 'none', font: 'inherit', fontSize: 13, color: 'var(--hf-text)', width: '100%', flex: 1 }}
+                  />
+                  {q && (
+                    <button type="button" onClick={() => setQ('')} title="Pulisci" style={{ border: 'none', background: 'transparent', color: 'var(--hf-text-3)', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                  )}
+                </label>
               </div>
               <table className="data-table">
                 <thead><tr><th>SKU</th><th>Articolo</th><th>Categoria</th><th>Stock</th><th>€ acq.</th><th>€ vend.</th><th>Margine</th><th>Fornitore</th><th></th></tr></thead>

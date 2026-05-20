@@ -41,25 +41,28 @@ export default function Accettazione() {
     if (!form.modello.trim() && !deviceType) { setErr('Indica almeno il dispositivo.'); return; }
 
     setSaving(true);
+    const up = v => (typeof v === 'string' ? v.toUpperCase() : v);
     try {
       let cid = clienteId;
       if (clienteMode !== 'Esistente') {
         const created = await clientiApi.create({
           ...nuovoCliente,
+          nome: up(nuovoCliente.nome),
+          cf: up(nuovoCliente.cf),
           tipo: clienteMode === 'Azienda' ? 'Azienda' : 'Privato',
         });
         cid = created.id;
       }
       const intervento = await interventiApi.create({
         cliente_id: cid,
-        dispositivo: `${form.marca} ${form.modello}`.trim() || deviceType,
-        marca: form.marca,
-        modello: form.modello,
-        seriale: form.seriale,
-        difetto: form.difetto,
-        accessori: form.accessori,
-        stato_estetico: form.stato_estetico,
-        password_cliente: form.password_cliente,
+        dispositivo: up(`${form.marca} ${form.modello}`.trim() || deviceType),
+        marca: up(form.marca),
+        modello: up(form.modello),
+        seriale: up(form.seriale),
+        difetto: up(form.difetto),
+        accessori: up(form.accessori),
+        stato_estetico: up(form.stato_estetico),
+        password_cliente: form.password_cliente, // password resta com'è digitata
         priorita: form.priorita,
         max_preventivo: Number(form.max_preventivo) || 0,
         tecnico_id: form.tecnico_id || null,

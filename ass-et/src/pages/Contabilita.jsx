@@ -27,8 +27,11 @@ export default function Contabilita() {
 
   const daIncassareList = list.filter(i => i.stato === STATO_DA_INCASSARE);
   const incassatoList   = list.filter(i => i.stato === STATO_INCASSATO);
-  const daIncassare = daIncassareList.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
-  const incassato   = incassatoList.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
+  // "Netto" = totale incassato meno costi pezzi (= margine_atteso).
+  const daIncassareNetto = daIncassareList.reduce((s, i) => s + Number(i.margine_atteso || 0), 0);
+  const incassatoNetto   = incassatoList.reduce((s, i) => s + Number(i.margine_atteso || 0), 0);
+  const daIncassareLordo = daIncassareList.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
+  const incassatoLordo   = incassatoList.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
 
   async function save(form) {
     setBusy(true);
@@ -73,22 +76,22 @@ export default function Contabilita() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="card" style={{ borderColor: 'var(--hf-amber)', background: 'var(--hf-amber-soft)' }}>
                 <div className="row between" style={{ marginBottom: 6 }}>
-                  <span className="kpi-label" style={{ color: 'var(--hf-amber)' }}>Da incassare</span>
+                  <span className="kpi-label" style={{ color: 'var(--hf-amber)' }}>Da incassare · netto</span>
                   <Badge tone="amber">{daIncassareList.length} interventi</Badge>
                 </div>
-                <div className="kpi-value">€ {daIncassare.toLocaleString('it-IT')}</div>
+                <div className="kpi-value">€ {daIncassareNetto.toLocaleString('it-IT')}</div>
                 <div style={{ fontSize: 11, color: 'var(--hf-text-3)', marginTop: 4 }}>
-                  Interventi consegnati ma non ancora pagati.
+                  Margine atteso · lordo € {daIncassareLordo.toLocaleString('it-IT')}
                 </div>
               </div>
               <div className="card" style={{ borderColor: 'var(--hf-green)', background: 'var(--hf-green-soft)' }}>
                 <div className="row between" style={{ marginBottom: 6 }}>
-                  <span className="kpi-label" style={{ color: 'var(--hf-green)' }}>Incassato</span>
+                  <span className="kpi-label" style={{ color: 'var(--hf-green)' }}>Incassato · netto</span>
                   <Badge tone="green">{incassatoList.length} interventi</Badge>
                 </div>
-                <div className="kpi-value">€ {incassato.toLocaleString('it-IT')}</div>
+                <div className="kpi-value">€ {incassatoNetto.toLocaleString('it-IT')}</div>
                 <div style={{ fontSize: 11, color: 'var(--hf-text-3)', marginTop: 4 }}>
-                  Pagamenti già ricevuti dai clienti.
+                  Margine già incassato · lordo € {incassatoLordo.toLocaleString('it-IT')}
                 </div>
               </div>
             </div>

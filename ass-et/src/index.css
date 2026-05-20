@@ -124,6 +124,10 @@ body {
 
 .input { background: var(--hf-surface); border: 1px solid var(--hf-border); border-radius: 6px; padding: 7px 10px; font: inherit; font-size: 13px; width: 100%; color: var(--hf-text); }
 .input:focus { outline: none; border-color: var(--hf-accent); box-shadow: 0 0 0 3px rgba(217,119,87,0.12); }
+/* Maiuscolo per i campi di testo dell'app (esclusi email, password, numeri e date) */
+input.input:not([type="email"]):not([type="password"]):not([type="number"]):not([type="date"]):not([type="tel"]):not(.no-uppercase),
+textarea.input:not(.no-uppercase) { text-transform: uppercase; }
+input.input::placeholder, textarea.input::placeholder { text-transform: none; }
 .field-label { font-size: 12px; color: var(--hf-text-3); font-weight: 500; margin-bottom: 4px; display: block; }
 
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--hf-border); }

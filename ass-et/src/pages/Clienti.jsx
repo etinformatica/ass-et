@@ -32,8 +32,10 @@ export default function Clienti() {
   async function save(form) {
     setBusy(true);
     try {
-      if (editing && editing.id) await clientiApi.update(editing.id, form);
-      else await clientiApi.create(form);
+      const up = v => (typeof v === 'string' ? v.toUpperCase() : v);
+      const payload = { ...form, nome: up(form.nome), cf: up(form.cf) };
+      if (editing && editing.id) await clientiApi.update(editing.id, payload);
+      else await clientiApi.create(payload);
       setEditing(null);
       clienti.reload();
     } catch (e) { alert('Errore: ' + e.message); } finally { setBusy(false); }
