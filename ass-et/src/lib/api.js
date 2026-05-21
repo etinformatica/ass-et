@@ -84,6 +84,12 @@ export const carichiApi = {
   async create(c) {
     return chk(await supabase.from('carichi_magazzino').insert(c).select().single());
   },
+  async update(id, patch) {
+    return chk(await supabase.from('carichi_magazzino').update(patch).eq('id', id).select().single());
+  },
+  async remove(id) {
+    return chk(await supabase.from('carichi_magazzino').delete().eq('id', id));
+  },
 };
 
 // ---------------- FORNITORI ----------------

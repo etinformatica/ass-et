@@ -228,6 +228,49 @@ create trigger trg_applica_carico
 after insert on carichi_magazzino
 for each row execute function applica_carico_magazzino();
 
+-- Trigger UPDATE: applica il delta di qty (e gestisce cambio articolo)
+create function aggiorna_stock_su_update_carico()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.magazzino_id is not distinct from new.magazzino_id then
+    if old.qty <> new.qty and new.magazzino_id is not null then
+      update magazzino set stock = stock + (new.qty - old.qty) where id = new.magazzino_id;
+    end if;
+  else
+    if old.magazzino_id is not null then
+      update magazzino set stock = stock - old.qty where id = old.magazzino_id;
+    end if;
+    if new.magazzino_id is not null then
+      update magazzino set stock = stock + new.qty where id = new.magazzino_id;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_aggiorna_carico
+after update on carichi_magazzino
+for each row execute function aggiorna_stock_su_update_carico();
+
+-- Trigger DELETE: sottrae lo stock
+create function aggiorna_stock_su_delete_carico()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.magazzino_id is not null then
+    update magazzino set stock = stock - old.qty where id = old.magazzino_id;
+  end if;
+  return old;
+end;
+$$;
+
+create trigger trg_elimina_carico
+after delete on carichi_magazzino
+for each row execute function aggiorna_stock_su_delete_carico();
+
 -- ---------- FOTO INTERVENTI ----------
 -- Le immagini risiedono nel bucket Storage "interventi-foto" (privato).
 -- Qui tracciamo solo il path; la URL viene generata firmata dal client.
