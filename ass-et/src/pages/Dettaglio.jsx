@@ -221,27 +221,55 @@ export default function Dettaglio() {
 
           <div className="col" style={{ gap: 16 }}>
             <div className="card">
-              <div className="card-title" style={{ marginBottom: 10 }}>Riepilogo €</div>
+              <div className="card-title" style={{ marginBottom: 8 }}>Riepilogo €</div>
+              <div title="Tetto autorizzato dal cliente al momento dell'accettazione"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                  padding: '6px 10px', borderRadius: 6, background: 'var(--hf-amber-soft)',
+                  color: 'var(--hf-amber)', fontSize: 12, marginBottom: 12 }}>
+                <span style={{ fontWeight: 500 }}>🛡 Max autorizzato cliente</span>
+                <EditEuro key={`max-${t.max_preventivo}`} value={Number(t.max_preventivo) || 0} onSave={v => saveCosti({ max_preventivo: v })} />
+              </div>
               <div className="col" style={{ gap: 10, fontSize: 13 }}>
-                <div className="row between" style={{ alignItems: 'center' }}>
-                  <span style={{ color: 'var(--hf-text-3)' }}>Max autorizzato</span>
-                  <EditEuro key={`max-${t.max_preventivo}`} value={Number(t.max_preventivo) || 0} onSave={v => saveCosti({ max_preventivo: v })} />
-                </div>
                 <div className="row between" style={{ alignItems: 'center' }}>
                   <span style={{ color: 'var(--hf-text-3)' }}>Manodopera</span>
                   <EditEuro key={`man-${manodopera}`} value={manodopera} onSave={v => saveCosti({ manodopera: v })} />
                 </div>
-                <div className="row between"><span style={{ color: 'var(--hf-text-3)' }}>Costo pezzi</span><span className="mono">€ {pezziVendita},00</span></div>
+
+                <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8 }}>
+                  <div style={{ color: 'var(--hf-text-3)', fontSize: 12, marginBottom: 6 }}>
+                    Pezzi {pezzi.length > 0 && <span>({pezzi.length})</span>}
+                  </div>
+                  {pezzi.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--hf-text-4)' }}>Nessun pezzo assegnato.</div>
+                  ) : (
+                    <div className="col" style={{ gap: 4 }}>
+                      {pezzi.map(p => (
+                        <div key={p.id} className="row between" style={{ fontSize: 12, alignItems: 'baseline' }}>
+                          <span style={{ minWidth: 0, color: 'var(--hf-text-2)' }}>
+                            <span className="mono" style={{ color: 'var(--hf-text-3)', marginRight: 6 }}>{p.qty}×</span>
+                            {p.nome}
+                          </span>
+                          <span className="mono">€ {(Number(p.prezzo_vend) * p.qty).toFixed(2).replace('.', ',')}</span>
+                        </div>
+                      ))}
+                      <div className="row between" style={{ marginTop: 4, fontSize: 12, color: 'var(--hf-text-3)' }}>
+                        <span>Subtotale pezzi</span>
+                        <span className="mono">€ {pezziVendita.toFixed(2).replace('.', ',')}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontWeight: 600 }}>Totale</span>
-                  <span style={{ fontWeight: 600, fontSize: 18 }}>€ {Math.round(totale)},00</span>
+                  <span style={{ fontWeight: 600, fontSize: 18 }}>€ {totale.toFixed(2).replace('.', ',')}</span>
                 </div>
                 <div className="row between" style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
                   <span>Margine</span>
-                  <span>€ {Math.round(margine)},00 · {totale ? Math.round((margine / totale) * 100) : 0}%</span>
+                  <span>€ {margine.toFixed(2).replace('.', ',')} · {totale ? Math.round((margine / totale) * 100) : 0}%</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
-                  Max, manodopera e pezzi sono modificabili per rettifiche. Il totale si aggiorna da solo.
+                  Manodopera e Max sono modificabili. I pezzi si aggiungono dalla sezione "Pezzi" qui sotto.
                 </div>
               </div>
             </div>
