@@ -129,6 +129,9 @@ export const interventiApi = {
         .single()
     );
   },
+  async updatePezzo(id, patch) {
+    return chk(await supabase.from('intervento_pezzi').update(patch).eq('id', id).select().single());
+  },
   async removePezzo(id) {
     return chk(await supabase.from('intervento_pezzi').delete().eq('id', id));
   },

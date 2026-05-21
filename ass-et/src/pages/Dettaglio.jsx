@@ -72,6 +72,30 @@ export default function Dettaglio() {
     } catch (e) { alert('Errore: ' + e.message); }
   }
 
+  async function persistTotalsFromPezzi(pezziArray) {
+    const v = pezziArray.reduce((s, x) => s + Number(x.prezzo_vend) * x.qty, 0);
+    const c = pezziArray.reduce((s, x) => s + Number(x.costo_acq) * x.qty, 0);
+    const tot = manodopera + v;
+    await interventiApi.update(t.id, { totale_stimato: tot, margine_atteso: tot - c });
+  }
+
+  async function updatePezzo(p, patch) {
+    try {
+      await interventiApi.updatePezzo(p.id, patch);
+      const next = pezzi.map(x => x.id === p.id ? { ...x, ...patch } : x);
+      await persistTotalsFromPezzi(next);
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
+  }
+
+  async function deletePezzo(p) {
+    try {
+      await interventiApi.removePezzo(p.id);
+      await persistTotalsFromPezzi(pezzi.filter(x => x.id !== p.id));
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
+  }
+
   async function saveDifettoRiscontrato(testo) {
     try { await interventiApi.update(t.id, { difetto_riscontrato: testo }); reload(); }
     catch (e) { alert('Errore: ' + e.message); }
@@ -182,12 +206,15 @@ export default function Dettaglio() {
                       <tr key={p.id}>
                         <td className="mono" style={{ color: 'var(--hf-text-3)' }}>{p.sku || '—'}</td>
                         <td className="strong">{p.nome}</td>
-                        <td>×{p.qty}</td>
+                        <td><EditNum key={`q-${p.id}-${p.qty}`} value={p.qty} min={1} step={1} onSave={n => updatePezzo(p, { qty: n })} width={56} /></td>
                         <td className="mono" style={{ color: 'var(--hf-text-3)' }}>€ {p.costo_acq}</td>
-                        <td className="mono strong">€ {p.prezzo_vend}</td>
+                        <td><span className="row center" style={{ gap: 4, justifyContent: 'flex-start' }}>
+                          <span className="mono" style={{ color: 'var(--hf-text-3)' }}>€</span>
+                          <EditNum key={`v-${p.id}-${p.prezzo_vend}`} value={p.prezzo_vend} step={0.01} onSave={n => updatePezzo(p, { prezzo_vend: n })} width={80} mono />
+                        </span></td>
                         <td><Badge tone={p.stato_tone}>{p.stato}</Badge></td>
                         <td>
-                          <button className="btn ghost sm" style={{ padding: 4 }} onClick={async () => { await interventiApi.removePezzo(p.id); reload(); }}>
+                          <button className="btn ghost sm" style={{ padding: 4 }} onClick={() => deletePezzo(p)}>
                             <Icon name="trash" />
                           </button>
                         </td>
@@ -489,6 +516,30 @@ function PezzoModal({ interventoId, onClose, onSaved }) {
         </>
       )}
     </Modal>
+  );
+}
+
+function EditNum({ value, onSave, min, step = 1, width = 60, mono = false }) {
+  const [v, setV] = useState(value ?? 0);
+  function commit() {
+    let n = Number(v);
+    if (!isFinite(n)) n = 0;
+    if (min != null) n = Math.max(min, n);
+    if (n !== Number(value)) onSave(n);
+    setV(n);
+  }
+  return (
+    <input
+      className={`input ${mono ? 'mono' : ''}`}
+      type="number"
+      step={step}
+      min={min}
+      value={v}
+      onChange={e => setV(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+      style={{ width, textAlign: 'right', padding: '4px 8px', fontSize: 12 }}
+    />
   );
 }
 
