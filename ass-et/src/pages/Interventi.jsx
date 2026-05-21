@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Btn, Avatar, Topbar, Icon, Pill } from '../components/UI';
 import { Loading, ErrorState, EmptyState } from '../components/States';
@@ -142,34 +142,49 @@ export default function Interventi() {
 
 function StatoCell({ value, onChange }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
   const tone = STATO_TONE[value] || 'gray';
+
+  function handleClick(e) {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const popW = 180;
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - popW - 8));
+      setPos({ top: r.bottom + 4, left });
+    }
+    setOpen(o => !o);
+  }
+
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
+    <>
       <button
+        ref={btnRef}
         type="button"
         className={`badge ${tone}`}
-        onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+        onClick={handleClick}
         title="Clicca per cambiare stato"
-        style={{ border: '1px solid transparent', cursor: 'pointer', padding: '3px 22px 3px 10px', font: 'inherit', fontSize: 11, fontWeight: 500 }}
+        style={{ position: 'relative', border: '1px solid transparent', cursor: 'pointer', padding: '3px 22px 3px 10px', font: 'inherit', fontSize: 11, fontWeight: 500 }}
       >
         {value}
         <span style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 9, opacity: 0.7 }}>▼</span>
       </button>
       {open && (
         <>
-          <div onClick={e => { e.stopPropagation(); setOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+          <div onClick={e => { e.stopPropagation(); setOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 900 }} />
           <div
             onClick={e => e.stopPropagation()}
-            style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 60,
+            style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 901,
               background: 'var(--hf-surface)', border: '1px solid var(--hf-border)', borderRadius: 8,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 6, minWidth: 170 }}
+              boxShadow: '0 8px 24px rgba(0,0,0,0.18)', padding: 6, minWidth: 180 }}
           >
             {STATI.map(s => (
               <button
                 key={s.stato}
                 type="button"
                 onClick={() => { onChange(s.stato); setOpen(false); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 6px',
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 6px',
                   background: s.stato === value ? 'var(--hf-surface-2)' : 'transparent',
                   border: 'none', borderRadius: 5, cursor: 'pointer' }}
               >
@@ -179,7 +194,7 @@ function StatoCell({ value, onChange }) {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 
