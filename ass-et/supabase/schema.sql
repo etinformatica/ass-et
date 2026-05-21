@@ -23,6 +23,7 @@ drop table if exists fatture cascade;
 drop table if exists ordini_fornitore cascade;
 drop table if exists interventi cascade;
 drop table if exists magazzino cascade;
+drop table if exists fornitori cascade;
 drop table if exists clienti cascade;
 drop table if exists tecnici cascade;
 drop table if exists impostazioni cascade;
@@ -180,11 +181,24 @@ create table fatture (
 );
 
 -- ---------- CARICHI MAGAZZINO (storico ingressi merce) ----------
+-- ---------- FORNITORI ----------
+create table fornitori (
+  id          uuid primary key default gen_random_uuid(),
+  nome        text not null unique,
+  tel         text,
+  email       text,
+  indirizzo   text,
+  p_iva       text,
+  note        text,
+  created_at  timestamptz not null default now()
+);
+
 -- Ogni carico registra n° fattura fornitore, data e quantità.
 -- Un trigger incrementa lo stock dell'articolo collegato.
 create table carichi_magazzino (
   id             uuid primary key default gen_random_uuid(),
   magazzino_id   uuid references magazzino(id) on delete set null,
+  fornitore_id   uuid references fornitori(id) on delete set null,
   sku            text,
   nome           text,
   qty            integer not null,
@@ -237,7 +251,7 @@ begin
   foreach t in array array[
     'tecnici','impostazioni','clienti','magazzino','interventi',
     'intervento_pezzi','intervento_attivita','ordini_fornitore','fatture',
-    'carichi_magazzino','intervento_foto'
+    'carichi_magazzino','intervento_foto','fornitori'
   ]
   loop
     execute format('alter table %I enable row level security;', t);

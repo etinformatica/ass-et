@@ -68,12 +68,40 @@ export const carichiApi = {
     return chk(
       await supabase
         .from('carichi_magazzino')
-        .select('*')
+        .select('*, fornitore_rel:fornitori(id, nome)')
         .order('created_at', { ascending: false })
+    );
+  },
+  async listByFornitore(fornitoreId) {
+    return chk(
+      await supabase
+        .from('carichi_magazzino')
+        .select('*')
+        .eq('fornitore_id', fornitoreId)
+        .order('data_carico', { ascending: false })
     );
   },
   async create(c) {
     return chk(await supabase.from('carichi_magazzino').insert(c).select().single());
+  },
+};
+
+// ---------------- FORNITORI ----------------
+export const fornitoriApi = {
+  async list() {
+    return chk(await supabase.from('fornitori').select('*').order('nome'));
+  },
+  async get(id) {
+    return chk(await supabase.from('fornitori').select('*').eq('id', id).single());
+  },
+  async create(f) {
+    return chk(await supabase.from('fornitori').insert(f).select().single());
+  },
+  async update(id, patch) {
+    return chk(await supabase.from('fornitori').update(patch).eq('id', id).select().single());
+  },
+  async remove(id) {
+    return chk(await supabase.from('fornitori').delete().eq('id', id));
   },
 };
 

@@ -9,6 +9,7 @@ const NAV = [
   { path: '/interventi', label: 'Interventi', icon: 'list', count: null },
   { path: '/clienti', label: 'Clienti', icon: 'users', count: null },
   { path: '/magazzino', label: 'Magazzino', icon: 'box', count: null },
+  { path: '/fornitori', label: 'Fornitori', icon: 'users', count: null },
   { path: '/contabilita', label: 'Contabilità', icon: 'euro', count: null },
   { path: '/impostazioni', label: 'Impostazioni', icon: 'settings', count: null },
 ];

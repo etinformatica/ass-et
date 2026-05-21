@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Badge, Btn, Topbar, Icon } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
-import { magazzinoApi, ordiniApi, carichiApi } from '../lib/api';
+import { magazzinoApi, ordiniApi, carichiApi, fornitoriApi } from '../lib/api';
 
 const CATEGORIE = ['Tutti', 'Storage', 'Memorie', 'Display', 'Batterie', 'Tastiere', 'Accessori'];
 const EMPTY = { sku: '', nome: '', categoria: 'Accessori', stock: 0, min_stock: 0, costo_acq: 0, prezzo_vend: 0, fornitore: '' };
@@ -12,6 +13,7 @@ export default function Magazzino() {
   const mag = useData(() => magazzinoApi.list(), []);
   const ordini = useData(() => ordiniApi.list(), []);
   const carichi = useData(() => carichiApi.list(), []);
+  const fornitori = useData(() => fornitoriApi.list(), []);
   const [cat, setCat] = useState('Tutti');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
@@ -233,7 +235,13 @@ export default function Magazzino() {
                         <td className="strong">+{c.qty}</td>
                         <td className="mono" style={{ color: 'var(--hf-text-3)' }}>{c.costo_acq != null ? `€ ${c.costo_acq}` : '—'}</td>
                         <td className="mono">{c.numero_fattura || '—'}</td>
-                        <td style={{ color: 'var(--hf-text-2)' }}>{c.fornitore || '—'}</td>
+                        <td style={{ color: 'var(--hf-text-2)' }}>
+                          {c.fornitore_rel?.id ? (
+                            <Link to={`/fornitori/${c.fornitore_rel.id}`} style={{ color: 'var(--hf-accent)', textDecoration: 'none' }}>
+                              {c.fornitore_rel.nome}
+                            </Link>
+                          ) : (c.fornitore || '—')}
+                        </td>
                       </tr>
                     ))}
                     {(carichi.data || []).length === 0 && (
@@ -248,7 +256,7 @@ export default function Magazzino() {
       </div>
 
       {editing && <ArticoloForm initial={editing} onClose={() => setEditing(null)} onSave={save} busy={busy} />}
-      {caricoOpen && <CaricoModal articoli={list} onClose={() => setCaricoOpen(false)} onSave={saveCarico} busy={busy} />}
+      {caricoOpen && <CaricoModal articoli={list} fornitori={fornitori.data || []} onFornitoriReload={fornitori.reload} onClose={() => setCaricoOpen(false)} onSave={saveCarico} busy={busy} />}
       {toDelete && <ConfirmDialog message={`Eliminare l'articolo "${toDelete.nome}" (${toDelete.sku})?`} onConfirm={doDelete} onClose={() => setToDelete(null)} busy={busy} />}
     </main>
   );
@@ -317,23 +325,50 @@ function ArticoloForm({ initial, onClose, onSave, busy }) {
   );
 }
 
-function CaricoModal({ articoli, onClose, onSave, busy }) {
+function CaricoModal({ articoli, fornitori, onFornitoriReload, onClose, onSave, busy }) {
   const oggi = new Date().toISOString().slice(0, 10);
   const [sel, setSel] = useState('');
   const [qty, setQty] = useState(1);
   const [costo, setCosto] = useState('');
   const [numeroFattura, setNumeroFattura] = useState('');
-  const [fornitore, setFornitore] = useState('');
+  const [fornitoreId, setFornitoreId] = useState('');
   const [data, setData] = useState(oggi);
   const [err, setErr] = useState(null);
+  const [nuovoOpen, setNuovoOpen] = useState(false);
+  const [nuovo, setNuovo] = useState({ nome: '', tel: '', p_iva: '' });
+  const [nuovoBusy, setNuovoBusy] = useState(false);
 
   function pickArticolo(id) {
     setSel(id);
     const a = (articoli || []).find(x => x.id === id);
     if (a) {
       setCosto(a.costo_acq ?? '');
-      setFornitore(a.fornitore || '');
+      // se l'articolo ha un fornitore di default come testo, prova a matcharlo all'anagrafica
+      if (a.fornitore && !fornitoreId) {
+        const match = (fornitori || []).find(f => f.nome === a.fornitore.toUpperCase().trim());
+        if (match) setFornitoreId(match.id);
+      }
     }
+  }
+
+  async function creaNuovoFornitore() {
+    if (!nuovo.nome.trim()) { setErr('Il nome del fornitore è obbligatorio.'); return; }
+    setNuovoBusy(true);
+    setErr(null);
+    try {
+      const up = v => (typeof v === 'string' ? v.toUpperCase() : v);
+      const created = await fornitoriApi.create({
+        nome: up(nuovo.nome.trim()),
+        tel: nuovo.tel?.trim() || null,
+        p_iva: up(nuovo.p_iva?.trim() || ''),
+      });
+      await onFornitoriReload();
+      setFornitoreId(created.id);
+      setNuovoOpen(false);
+      setNuovo({ nome: '', tel: '', p_iva: '' });
+    } catch (e) {
+      setErr('Errore creazione fornitore: ' + (e.message || 'duplicato?'));
+    } finally { setNuovoBusy(false); }
   }
 
   function submit() {
@@ -341,6 +376,7 @@ function CaricoModal({ articoli, onClose, onSave, busy }) {
     if (!a) { setErr('Seleziona un articolo.'); return; }
     if (!(Number(qty) > 0)) { setErr('La quantità deve essere maggiore di zero.'); return; }
     setErr(null);
+    const fornitoreObj = (fornitori || []).find(f => f.id === fornitoreId);
     onSave({
       magazzino_id: a.id,
       sku: a.sku,
@@ -348,7 +384,8 @@ function CaricoModal({ articoli, onClose, onSave, busy }) {
       qty: Number(qty),
       costo_acq: costo === '' ? null : Number(costo),
       numero_fattura: numeroFattura.trim() || null,
-      fornitore: fornitore.trim() || null,
+      fornitore_id: fornitoreId || null,
+      fornitore: fornitoreObj ? fornitoreObj.nome : null,
       data_carico: data || oggi,
     });
   }
@@ -383,7 +420,31 @@ function CaricoModal({ articoli, onClose, onSave, busy }) {
         <Field label="N° fattura fornitore"><input className="input mono" value={numeroFattura} onChange={e => setNumeroFattura(e.target.value)} placeholder="es. 2026/142" /></Field>
         <Field label="Data carico"><input className="input mono" type="date" value={data} onChange={e => setData(e.target.value)} /></Field>
       </div>
-      <Field label="Fornitore"><input className="input" value={fornitore} onChange={e => setFornitore(e.target.value)} /></Field>
+
+      {nuovoOpen ? (
+        <div className="card tinted" style={{ padding: 10 }}>
+          <div className="row between" style={{ marginBottom: 8, alignItems: 'center' }}>
+            <strong style={{ fontSize: 13 }}>Nuovo fornitore</strong>
+            <button className="btn ghost sm" onClick={() => setNuovoOpen(false)}>annulla</button>
+          </div>
+          <Field label="Nome / ragione sociale"><input className="input" value={nuovo.nome} onChange={e => setNuovo(s => ({ ...s, nome: e.target.value }))} autoFocus /></Field>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <Field label="Telefono"><input className="input mono" type="tel" value={nuovo.tel} onChange={e => setNuovo(s => ({ ...s, tel: e.target.value }))} /></Field>
+            <Field label="P.IVA"><input className="input mono" value={nuovo.p_iva} onChange={e => setNuovo(s => ({ ...s, p_iva: e.target.value }))} /></Field>
+          </div>
+          <Btn tone="accent" size="sm" onClick={creaNuovoFornitore}>{nuovoBusy ? 'Salvo…' : 'Crea e usa'}</Btn>
+        </div>
+      ) : (
+        <Field label="Fornitore">
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select className="input" value={fornitoreId} onChange={e => setFornitoreId(e.target.value)} style={{ flex: 1 }}>
+              <option value="">— nessuno —</option>
+              {(fornitori || []).map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+            </select>
+            <Btn size="sm" onClick={() => setNuovoOpen(true)}>+ nuovo</Btn>
+          </div>
+        </Field>
+      )}
     </Modal>
   );
 }

@@ -6,6 +6,7 @@ import Dettaglio from './pages/Dettaglio';
 import Accettazione from './pages/Accettazione';
 import Clienti from './pages/Clienti';
 import Magazzino from './pages/Magazzino';
+import Fornitori from './pages/Fornitori';
 import Contabilita from './pages/Contabilita';
 import Impostazioni from './pages/Impostazioni';
 import Login from './pages/Login';
@@ -52,6 +53,8 @@ function Gate() {
                 <Route path="/accettazione" element={<Accettazione />} />
                 <Route path="/clienti" element={<Clienti />} />
                 <Route path="/magazzino" element={<Magazzino />} />
+                <Route path="/fornitori" element={<Fornitori />} />
+                <Route path="/fornitori/:id" element={<Fornitori />} />
                 <Route path="/contabilita" element={<Contabilita />} />
                 <Route path="/impostazioni" element={<Impostazioni />} />
               </Routes>
