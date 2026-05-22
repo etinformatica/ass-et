@@ -81,6 +81,15 @@ export const carichiApi = {
         .order('data_carico', { ascending: false })
     );
   },
+  async listByMagazzino(magazzinoId) {
+    return chk(
+      await supabase
+        .from('carichi_magazzino')
+        .select('*, fornitore_rel:fornitori(id, nome)')
+        .eq('magazzino_id', magazzinoId)
+        .order('data_carico', { ascending: false })
+    );
+  },
   async create(c) {
     return chk(await supabase.from('carichi_magazzino').insert(c).select().single());
   },

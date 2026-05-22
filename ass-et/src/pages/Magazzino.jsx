@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge, Btn, Topbar, Icon } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
@@ -19,6 +19,7 @@ export default function Magazzino() {
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
+  const [storico, setStorico] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const list = mag.data || [];
@@ -196,8 +197,9 @@ export default function Magazzino() {
                       <td><Badge tone="accent">{margine(a)}%</Badge></td>
                       <td style={{ color: 'var(--hf-text-2)' }}>{a.fornitore}</td>
                       <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
-                        <button className="btn ghost sm" style={{ padding: 4 }} onClick={() => setEditing(a)}><Icon name="edit" /></button>
-                        <button className="btn ghost sm" style={{ padding: 4 }} onClick={() => setToDelete(a)}><Icon name="trash" /></button>
+                        <button className="btn ghost sm" style={{ padding: 4 }} title="Storico acquisti" onClick={() => setStorico(a)}><Icon name="list" /></button>
+                        <button className="btn ghost sm" style={{ padding: 4 }} title="Modifica" onClick={() => setEditing(a)}><Icon name="edit" /></button>
+                        <button className="btn ghost sm" style={{ padding: 4 }} title="Elimina" onClick={() => setToDelete(a)}><Icon name="trash" /></button>
                       </td>
                     </tr>
                   ))}
@@ -210,13 +212,23 @@ export default function Magazzino() {
         )}
       </div>
 
-      {editing && <ArticoloForm initial={editing} onClose={() => setEditing(null)} onSave={save} busy={busy} />}
+      {editing && (
+        <ArticoloForm
+          initial={editing}
+          articoli={list}
+          onUseExisting={(a) => { setEditing(a); }}
+          onClose={() => setEditing(null)}
+          onSave={save}
+          busy={busy}
+        />
+      )}
+      {storico && <StoricoAcquistiModal articolo={storico} onClose={() => setStorico(null)} />}
       {toDelete && <ConfirmDialog message={`Eliminare l'articolo "${toDelete.nome}" (${toDelete.sku})?`} onConfirm={doDelete} onClose={() => setToDelete(null)} busy={busy} />}
     </main>
   );
 }
 
-function ArticoloForm({ initial, onClose, onSave, busy }) {
+function ArticoloForm({ initial, articoli = [], onUseExisting, onClose, onSave, busy }) {
   const isNew = !initial.id;
   const oggi = new Date().toISOString().slice(0, 10);
   const [f, setF] = useState({
@@ -254,6 +266,42 @@ function ArticoloForm({ initial, onClose, onSave, busy }) {
         </Field>
       </div>
       <Field label="Nome articolo"><input className="input" value={f.nome} onChange={e => set('nome', e.target.value)} /></Field>
+
+      {isNew && (() => {
+        const term = `${f.nome} ${f.sku}`.trim().toLowerCase();
+        if (term.length < 2) return null;
+        const tokens = term.split(/\s+/).filter(Boolean);
+        const matches = articoli.filter(a => {
+          const hay = `${a.nome || ''} ${a.sku || ''}`.toLowerCase();
+          return tokens.every(t => hay.includes(t));
+        }).slice(0, 5);
+        if (matches.length === 0) return null;
+        return (
+          <div className="card" style={{ borderColor: 'var(--hf-amber)', background: 'var(--hf-amber-soft)', padding: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hf-amber)', marginBottom: 6 }}>
+              ⚠ Articoli simili già in catalogo — clicca per usarne uno esistente
+            </div>
+            <div className="col" style={{ gap: 4 }}>
+              {matches.map(a => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="row between"
+                  onClick={() => onUseExisting && onUseExisting(a)}
+                  style={{ background: 'var(--hf-surface)', border: '1px solid var(--hf-border)', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', textAlign: 'left', font: 'inherit', alignItems: 'center' }}
+                >
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span className="strong">{a.nome}</span>
+                    <span className="mono" style={{ marginLeft: 8, fontSize: 11, color: 'var(--hf-text-3)' }}>{a.sku || 'no SKU'}</span>
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>stock {a.stock} · € {a.prezzo_vend}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {!isNew && <Field label="Stock"><input className="input mono" type="number" value={f.stock} onChange={e => set('stock', e.target.value)} /></Field>}
         <Field label="Stock minimo"><input className="input mono" type="number" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} /></Field>
@@ -274,6 +322,108 @@ function ArticoloForm({ initial, onClose, onSave, busy }) {
             Se indichi una quantità, lo stock viene caricato e registrato nello storico carichi con n° fattura e data.
           </div>
         </div>
+      )}
+    </Modal>
+  );
+}
+
+// Storico acquisti di un singolo articolo, raggruppato per fornitore.
+function StoricoAcquistiModal({ articolo, onClose }) {
+  const carichi = useData(() => carichiApi.listByMagazzino(articolo.id), [articolo.id]);
+  const list = carichi.data || [];
+
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const c of carichi.data || []) {
+      const k = c.fornitore_id || `tx:${c.fornitore || '_nessuno_'}`;
+      if (!map.has(k)) {
+        map.set(k, {
+          key: k,
+          fornitore_id: c.fornitore_id || null,
+          fornitore_nome: c.fornitore_rel?.nome || c.fornitore || '— senza fornitore —',
+          righe: [],
+        });
+      }
+      map.get(k).righe.push(c);
+    }
+    const out = Array.from(map.values()).map(g => {
+      g.righe.sort((a, b) => (b.data_carico || '').localeCompare(a.data_carico || ''));
+      return {
+        ...g,
+        qtyTot: g.righe.reduce((s, r) => s + Number(r.qty || 0), 0),
+        spesaTot: g.righe.reduce((s, r) => s + Number(r.qty || 0) * Number(r.costo_acq || 0), 0),
+        ultimoData: g.righe[0]?.data_carico,
+      };
+    });
+    out.sort((a, b) => (b.ultimoData || '').localeCompare(a.ultimoData || ''));
+    return out;
+  }, [carichi.data]);
+
+  const totQty = list.reduce((s, r) => s + Number(r.qty || 0), 0);
+  const totSpesa = list.reduce((s, r) => s + Number(r.qty || 0) * Number(r.costo_acq || 0), 0);
+  const prezzoMedio = totQty ? totSpesa / totQty : 0;
+  const ultimo = list[0];
+
+  return (
+    <Modal
+      title={`Storico acquisti · ${articolo.nome}`}
+      width={760}
+      onClose={onClose}
+      footer={<Btn onClick={onClose}>Chiudi</Btn>}
+    >
+      {carichi.loading && <Loading />}
+      {carichi.error && <ErrorState error={carichi.error} onRetry={carichi.reload} />}
+      {!carichi.loading && !carichi.error && (
+        <>
+          <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            <div className="card kpi"><div className="kpi-label">Carichi</div><div className="kpi-value sm">{list.length}</div></div>
+            <div className="card kpi"><div className="kpi-label">Pezzi acquistati</div><div className="kpi-value sm">{totQty}</div></div>
+            <div className="card kpi"><div className="kpi-label">Fornitori diversi</div><div className="kpi-value sm">{groups.length}</div></div>
+            <div className="card kpi"><div className="kpi-label">Prezzo medio</div><div className="kpi-value sm">€ {prezzoMedio.toFixed(2).replace('.', ',')}</div></div>
+          </div>
+
+          {ultimo && (
+            <div className="card tinted" style={{ padding: 10, fontSize: 12, color: 'var(--hf-text-2)' }}>
+              Ultimo acquisto:{' '}
+              <strong>{ultimo.data_carico ? new Date(ultimo.data_carico).toLocaleDateString('it-IT') : '—'}</strong>
+              {' '}da{' '}
+              {ultimo.fornitore_rel?.id ? (
+                <Link to={`/fornitori/${ultimo.fornitore_rel.id}`} style={{ color: 'var(--hf-accent)', textDecoration: 'none', fontWeight: 600 }}>{ultimo.fornitore_rel.nome}</Link>
+              ) : <strong>{ultimo.fornitore || '— senza fornitore —'}</strong>}
+              {' · '}{ultimo.qty} pz a € {ultimo.costo_acq != null ? ultimo.costo_acq : '—'} cad.
+            </div>
+          )}
+
+          {groups.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: 'var(--hf-text-3)' }}>Nessun acquisto registrato per questo articolo.</div>}
+          {groups.map(g => (
+            <div key={g.key} className="card" style={{ padding: 0 }}>
+              <div style={{ padding: '8px 12px', background: 'var(--hf-surface-2)', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--hf-border)' }}>
+                {g.fornitore_id ? (
+                  <Link to={`/fornitori/${g.fornitore_id}`} style={{ color: 'var(--hf-accent)', fontWeight: 600, textDecoration: 'none' }}>{g.fornitore_nome}</Link>
+                ) : <strong>{g.fornitore_nome}</strong>}
+                <div style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
+                  {g.righe.length} carich{g.righe.length === 1 ? 'o' : 'i'} · {g.qtyTot} pezzi
+                </span>
+                <span className="mono strong" style={{ fontSize: 13 }}>€ {g.spesaTot.toFixed(2).replace('.', ',')}</span>
+              </div>
+              <table className="data-table">
+                <thead><tr><th>Data</th><th style={{ textAlign: 'right' }}>Q.</th><th style={{ textAlign: 'right' }}>€ cad.</th><th style={{ textAlign: 'right' }}>Totale</th><th>N° fattura</th></tr></thead>
+                <tbody>
+                  {g.righe.map(r => (
+                    <tr key={r.id}>
+                      <td className="mono" style={{ color: 'var(--hf-text-3)' }}>{r.data_carico ? new Date(r.data_carico).toLocaleDateString('it-IT') : '—'}</td>
+                      <td className="mono" style={{ textAlign: 'right' }}>{r.qty}</td>
+                      <td className="mono" style={{ textAlign: 'right' }}>{r.costo_acq != null ? `€ ${r.costo_acq}` : '—'}</td>
+                      <td className="mono strong" style={{ textAlign: 'right' }}>€ {(Number(r.qty || 0) * Number(r.costo_acq || 0)).toFixed(2).replace('.', ',')}</td>
+                      <td className="mono" style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>{r.numero_fattura || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </>
       )}
     </Modal>
   );

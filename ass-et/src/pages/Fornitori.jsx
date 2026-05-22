@@ -341,6 +341,41 @@ function CaricoMultiModal({ articoli, fornitori, fornitoreInitial, onFornitoriRe
   const [nuovoForn, setNuovoForn] = useState(null); // {nome,tel,p_iva} | null
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const allCarichi = useData(() => carichiApi.list(), []);
+
+  // mappa magazzino_id → { ultimo: carico più recente, fornitori: Set di nomi distinti }
+  const acquistiByArticolo = useMemo(() => {
+    const m = new Map();
+    for (const c of allCarichi.data || []) {
+      if (!c.magazzino_id) continue;
+      let e = m.get(c.magazzino_id);
+      if (!e) { e = { righe: [], fornitori: new Set() }; m.set(c.magazzino_id, e); }
+      e.righe.push(c);
+      const fn = c.fornitore_rel?.nome || c.fornitore;
+      if (fn) e.fornitori.add(fn);
+    }
+    for (const e of m.values()) {
+      e.righe.sort((a, b) => (b.data_carico || '').localeCompare(a.data_carico || ''));
+      e.ultimo = e.righe[0];
+    }
+    return m;
+  }, [allCarichi.data]);
+
+  function renderHint(magId) {
+    if (!magId) return null;
+    const e = acquistiByArticolo.get(magId);
+    if (!e || !e.ultimo) return <span style={{ color: 'var(--hf-text-4)' }}>Mai acquistato prima</span>;
+    const u = e.ultimo;
+    const lastName = u.fornitore_rel?.nome || u.fornitore || '— senza fornitore —';
+    const lastDate = u.data_carico ? new Date(u.data_carico).toLocaleDateString('it-IT') : '—';
+    const others = Array.from(e.fornitori).filter(n => n !== lastName);
+    return (
+      <span>
+        Ultimo: <strong>{lastDate}</strong> da <strong>{lastName}</strong> a € {u.costo_acq != null ? u.costo_acq : '—'} cad.
+        {others.length > 0 && <span style={{ color: 'var(--hf-text-3)' }}>{` · anche da ${others.slice(0, 2).join(', ')}${others.length > 2 ? ` +${others.length - 2}` : ''}`}</span>}
+      </span>
+    );
+  }
 
   function addRiga() {
     setRighe(rs => [...rs, { key: nextKey, magazzino_id: '', qty: 1, costo: '' }]);
@@ -473,7 +508,7 @@ function CaricoMultiModal({ articoli, fornitori, fornitoreInitial, onFornitoriRe
             </tr>
           </thead>
           <tbody>
-            {righe.map(r => (
+            {righe.map(r => [
               <tr key={r.key}>
                 <td>
                   <select className="input" value={r.magazzino_id} onChange={e => pickArticolo(r.key, e.target.value)} style={{ minWidth: 0 }}>
@@ -485,8 +520,15 @@ function CaricoMultiModal({ articoli, fornitori, fornitoreInitial, onFornitoriRe
                 <td><input className="input mono" type="number" step="0.01" value={r.costo} onChange={e => updateRiga(r.key, { costo: e.target.value })} placeholder="0,00" style={{ textAlign: 'right', padding: '4px 6px' }} /></td>
                 <td className="mono" style={{ textAlign: 'right' }}>€ {(Number(r.qty || 0) * Number(r.costo || 0)).toFixed(2).replace('.', ',')}</td>
                 <td><button className="btn ghost sm" style={{ padding: 4 }} title="Rimuovi riga" onClick={() => removeRiga(r.key)} disabled={righe.length === 1}><Icon name="trash" /></button></td>
-              </tr>
-            ))}
+              </tr>,
+              r.magazzino_id && (
+                <tr key={`${r.key}-hint`}>
+                  <td colSpan={5} style={{ padding: '4px 12px 8px', borderTop: 'none', fontSize: 11, color: 'var(--hf-text-2)', background: 'var(--hf-surface-2)' }}>
+                    {renderHint(r.magazzino_id)}
+                  </td>
+                </tr>
+              ),
+            ])}
           </tbody>
         </table>
       </div>
