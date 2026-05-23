@@ -99,6 +99,7 @@ create table interventi (
   accessori       text,
   stato_estetico  text,
   password_cliente text,
+  ubicazione      text not null default 'IN LABORATORIO',
   created_at      timestamptz not null default now(),
   unique (anno, prog)
 );

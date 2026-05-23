@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Btn, Avatar, Topbar } from '../components/UI';
 import { Loading, ErrorState } from '../components/States';
 import { useData } from '../lib/useData';
 import { useImpostazioni } from '../lib/useImpostazioni';
 import { clientiApi, tecniciApi, interventiApi } from '../lib/api';
+import { Combo } from '../components/Combo';
 
 const DEVICE_TYPES = ['PC fisso', 'Notebook', 'Smartphone', 'Tablet', 'Stampante', 'Altro'];
 
@@ -12,19 +13,33 @@ export default function Accettazione() {
   const navigate = useNavigate();
   const clienti = useData(() => clientiApi.list(), []);
   const tecnici = useData(() => tecniciApi.list(), []);
+  const interventi = useData(() => interventiApi.list(), []);
   const { tecnicoNome } = useImpostazioni();
 
   const [clienteMode, setClienteMode] = useState('Esistente');
   const [clienteId, setClienteId] = useState('');
+  const [clienteQuery, setClienteQuery] = useState('');
   const [nuovoCliente, setNuovoCliente] = useState({ nome: '', tel: '', email: '', cf: '', tipo: 'Privato' });
   const [deviceType, setDeviceType] = useState('Notebook');
   const [form, setForm] = useState({
     marca: '', modello: '', seriale: '', difetto: '', accessori: '',
     stato_estetico: '', password_cliente: '', priorita: 'Normale',
-    max_preventivo: '', tecnico_id: '',
+    max_preventivo: '', tecnico_id: '', ubicazione: 'IN LABORATORIO',
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
+
+  // Distinct di marche e modelli dagli interventi passati, per i suggerimenti.
+  const marcheNote = useMemo(() => {
+    const s = new Set();
+    for (const t of interventi.data || []) if (t.marca) s.add(t.marca);
+    return Array.from(s).sort();
+  }, [interventi.data]);
+  const modelliNoti = useMemo(() => {
+    const s = new Set();
+    for (const t of interventi.data || []) if (t.modello) s.add(t.modello);
+    return Array.from(s).sort();
+  }, [interventi.data]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -68,6 +83,7 @@ export default function Accettazione() {
         tecnico_id: form.tecnico_id || null,
         stato: 'Accettazione',
         stato_tone: 'gray',
+        ubicazione: form.ubicazione || 'IN LABORATORIO',
       });
       await interventiApi.addAttivita(intervento.id, {
         autore: tecnicoNome, tipo: 'accettazione', testo: 'Intervento accettato al banco.',
@@ -125,13 +141,16 @@ export default function Accettazione() {
 
               {clienteMode === 'Esistente' ? (
                 <div>
-                  <label className="field-label">Seleziona cliente</label>
-                  <select className="input" value={clienteId} onChange={e => setClienteId(e.target.value)}>
-                    <option value="">— seleziona —</option>
-                    {(clienti.data || []).map(c => (
-                      <option key={c.id} value={c.id}>{c.nome} · {c.tel || 's/tel'}</option>
-                    ))}
-                  </select>
+                  <label className="field-label">Seleziona cliente · cerca nome, telefono o email</label>
+                  <Combo
+                    value={clienteQuery}
+                    onChange={(v) => { setClienteQuery(v); if (!v) setClienteId(''); }}
+                    onPick={(c) => { setClienteId(c.id); setClienteQuery(`${c.nome} · ${c.tel || 's/tel'}`); }}
+                    options={clienti.data || []}
+                    getLabel={(c) => `${c.nome} · ${c.tel || 's/tel'}${c.email ? ' · ' + c.email : ''}`}
+                    placeholder="Inizia a digitare nome, telefono o email…"
+                    maxShown={12}
+                  />
                   {selectedCliente && (
                     <div className="row center" style={{ gap: 10, padding: '10px 12px', background: 'var(--hf-accent-soft)', borderRadius: 8, marginTop: 12 }}>
                       <Avatar name={selectedCliente.nome} tone="accent" size="md" />
@@ -164,8 +183,12 @@ export default function Accettazione() {
                 {DEVICE_TYPES.map(d => <span key={d} className={`pill ${deviceType === d ? 'active' : ''}`} onClick={() => setDeviceType(d)}>{d}</span>)}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1.5fr', gap: 10, marginBottom: 10 }}>
-                <div><label className="field-label">Marca</label><input className="input" value={form.marca} onChange={e => set('marca', e.target.value)} placeholder="HP" /></div>
-                <div><label className="field-label">Modello</label><input className="input" value={form.modello} onChange={e => set('modello', e.target.value)} placeholder="Pavilion 15" /></div>
+                <div><label className="field-label">Marca</label>
+                  <Combo value={form.marca} onChange={(v) => set('marca', v)} options={marcheNote} placeholder="HP, Apple, Samsung…" />
+                </div>
+                <div><label className="field-label">Modello</label>
+                  <Combo value={form.modello} onChange={(v) => set('modello', v)} options={modelliNoti} placeholder="Pavilion 15, iPhone 13…" />
+                </div>
                 <div><label className="field-label">Seriale / IMEI</label><input className="input mono" value={form.seriale} onChange={e => set('seriale', e.target.value)} /></div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr', gap: 10 }}>
@@ -209,6 +232,22 @@ export default function Accettazione() {
                 <div>
                   <label className="field-label">Preventivo max (€)</label>
                   <input className="input mono" type="number" value={form.max_preventivo} onChange={e => set('max_preventivo', e.target.value)} placeholder="0" />
+                </div>
+                <div>
+                  <label className="field-label">Dispositivo qui in laboratorio?</label>
+                  <div className="row center" style={{ gap: 6 }}>
+                    {[
+                      { v: 'IN LABORATORIO', l: 'In laboratorio' },
+                      { v: 'DAL CLIENTE', l: 'Restituito al cliente' },
+                    ].map(opt => (
+                      <span key={opt.v} className={`pill ${form.ubicazione === opt.v ? 'active' : ''}`} onClick={() => set('ubicazione', opt.v)}>{opt.l}</span>
+                    ))}
+                  </div>
+                  {form.ubicazione === 'DAL CLIENTE' && (
+                    <div style={{ fontSize: 11, color: 'var(--hf-amber)', marginTop: 4 }}>
+                      ⚠ Stai accettando il lavoro ma il dispositivo torna dal cliente (es. in attesa pezzo). Verrà segnalato chiaramente nell'intervento.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

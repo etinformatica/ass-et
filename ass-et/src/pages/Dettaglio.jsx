@@ -118,9 +118,10 @@ export default function Dettaglio() {
       <div className="content">
         <div className="page-head">
           <div>
-            <div className="row center" style={{ gap: 10, marginBottom: 4 }}>
+            <div className="row center" style={{ gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
               <span className="mono" style={{ color: 'var(--hf-text-3)', fontSize: 13 }}>#{t.numero}</span>
               <Badge tone={t.stato_tone}>{t.stato}</Badge>
+              <UbicazioneBadge ubicazione={t.ubicazione} onChange={(v) => saveCosti({ ubicazione: v })} />
               {pezzi.length > 0 && <Badge tone="gray" dot={false}>{pezzi.length} pezz{pezzi.length > 1 ? 'i' : 'o'} · €{pezziVendita}</Badge>}
             </div>
             <div className="page-title">{t.dispositivo} · {t.cliente?.nome || '—'}</div>
@@ -357,6 +358,52 @@ export default function Dettaglio() {
       {pezzoModal && <PezzoModal interventoId={t.id} onClose={() => setPezzoModal(false)} onSaved={() => { setPezzoModal(false); reload(); }} />}
       {delModal && <ConfirmDialog message={`Eliminare l'intervento #${t.numero}? Operazione irreversibile.`} onConfirm={doDelete} onClose={() => setDelModal(false)} busy={busy} />}
     </main>
+  );
+}
+
+const UBICAZIONI = [
+  { v: 'IN LABORATORIO', tone: 'gray',  label: '🏷 In laboratorio' },
+  { v: 'DAL CLIENTE',    tone: 'amber', label: '🏠 Dal cliente' },
+];
+
+function UbicazioneBadge({ ubicazione, onChange }) {
+  const [open, setOpen] = useState(false);
+  const value = ubicazione || 'IN LABORATORIO';
+  const cur = UBICAZIONI.find(u => u.v === value) || UBICAZIONI[0];
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button"
+        className={`badge ${cur.tone}`}
+        onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+        title="Dove si trova il dispositivo"
+        style={{ border: '1px solid transparent', cursor: 'pointer', padding: '3px 22px 3px 10px', font: 'inherit', fontSize: 11, fontWeight: 500 }}
+      >
+        {cur.label}
+        <span style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 9, opacity: 0.7 }}>▼</span>
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 900 }} />
+          <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 901,
+            background: 'var(--hf-surface)', border: '1px solid var(--hf-border)', borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.18)', padding: 6, minWidth: 180 }}>
+            {UBICAZIONI.map(u => (
+              <button
+                key={u.v}
+                type="button"
+                onClick={() => { onChange(u.v); setOpen(false); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 6px',
+                  background: u.v === value ? 'var(--hf-surface-2)' : 'transparent',
+                  border: 'none', borderRadius: 5, cursor: 'pointer' }}
+              >
+                <Badge tone={u.tone}>{u.label}</Badge>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </span>
   );
 }
 

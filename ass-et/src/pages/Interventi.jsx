@@ -217,7 +217,12 @@ function TableView({ tickets, navigate, onDelete, onStato, total }) {
               <td style={{ color: 'var(--hf-text-3)', fontSize: 12, maxWidth: 180 }}>
                 {(r.difetto || '').substring(0, 48)}{(r.difetto || '').length > 48 ? '…' : ''}
               </td>
-              <td><StatoCell value={r.stato} onChange={s => onStato(r.id, s)} /></td>
+              <td>
+                <StatoCell value={r.stato} onChange={s => onStato(r.id, s)} />
+                {r.ubicazione === 'DAL CLIENTE' && (
+                  <span className="badge amber" title="Dispositivo presso il cliente" style={{ marginLeft: 6, padding: '2px 6px' }}>🏠 dal cliente</span>
+                )}
+              </td>
               <td>
                 {r.tecnico ? (
                   <div className="row center" style={{ gap: 6 }}>
