@@ -319,6 +319,10 @@ function RigaCaricoEdit({ riga, onUpdate, onDelete }) {
 
 function InlineNum({ value, onSave, min, step = 1, width = 60, mono = false }) {
   const [v, setV] = useState(value ?? 0);
+  function focus(e) {
+    if (Number(v) === 0) setV('');
+    e.currentTarget.select();
+  }
   function commit() {
     let n = Number(v);
     if (!isFinite(n)) n = 0;
@@ -334,6 +338,7 @@ function InlineNum({ value, onSave, min, step = 1, width = 60, mono = false }) {
       min={min}
       value={v}
       onChange={e => setV(e.target.value)}
+      onFocus={focus}
       onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
       style={{ width, textAlign: 'right', padding: '4px 8px', fontSize: 12 }}

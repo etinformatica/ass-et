@@ -643,6 +643,10 @@ function PezzoModal({ interventoId, onClose, onSaved }) {
 
 function EditNum({ value, onSave, min, step = 1, width = 60, mono = false }) {
   const [v, setV] = useState(value ?? 0);
+  function focus(e) {
+    if (Number(v) === 0) setV('');
+    e.currentTarget.select();
+  }
   function commit() {
     let n = Number(v);
     if (!isFinite(n)) n = 0;
@@ -658,6 +662,7 @@ function EditNum({ value, onSave, min, step = 1, width = 60, mono = false }) {
       min={min}
       value={v}
       onChange={e => setV(e.target.value)}
+      onFocus={focus}
       onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
       style={{ width, textAlign: 'right', padding: '4px 8px', fontSize: 12 }}
@@ -667,9 +672,14 @@ function EditNum({ value, onSave, min, step = 1, width = 60, mono = false }) {
 
 function EditEuro({ value, onSave }) {
   const [v, setV] = useState(value ?? 0);
+  function focus(e) {
+    if (Number(v) === 0) setV('');
+    e.currentTarget.select();
+  }
   function commit() {
     const n = Number(v) || 0;
     if (n !== (Number(value) || 0)) onSave(n);
+    if (v === '') setV(0);
   }
   return (
     <span className="row center" style={{ gap: 4 }}>
@@ -679,6 +689,7 @@ function EditEuro({ value, onSave }) {
         type="number"
         value={v}
         onChange={e => setV(e.target.value)}
+        onFocus={focus}
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
         style={{ width: 90, textAlign: 'right', padding: '4px 8px' }}

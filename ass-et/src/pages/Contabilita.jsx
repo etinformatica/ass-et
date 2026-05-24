@@ -254,7 +254,7 @@ function FatturaForm({ initial, onClose, onSave, busy }) {
       <Field label="Cliente"><input className="input" value={f.cliente} onChange={e => set('cliente', e.target.value)} /></Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Field label="Riferimento"><input className="input mono" value={f.riferimento} onChange={e => set('riferimento', e.target.value)} placeholder="#2409" /></Field>
-        <Field label="Importo €"><input className="input mono" type="number" value={f.importo} onChange={e => set('importo', e.target.value)} /></Field>
+        <Field label="Importo €"><input className="input mono" type="number" value={f.importo} onChange={e => set('importo', e.target.value)} onFocus={e => { if (Number(f.importo) === 0) set('importo', ''); e.target.select(); }} /></Field>
         <Field label="Scadenza"><input className="input" value={f.scadenza} onChange={e => set('scadenza', e.target.value)} placeholder="30gg DF" /></Field>
         <Field label="Stato">
           <select className="input" value={f.stato} onChange={e => set('stato', e.target.value)}>

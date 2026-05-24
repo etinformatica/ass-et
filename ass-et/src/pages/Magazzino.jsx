@@ -303,10 +303,10 @@ function ArticoloForm({ initial, articoli = [], onUseExisting, onClose, onSave, 
       })()}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {!isNew && <Field label="Stock"><input className="input mono" type="number" value={f.stock} onChange={e => set('stock', e.target.value)} /></Field>}
-        <Field label="Stock minimo"><input className="input mono" type="number" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} /></Field>
-        <Field label="Costo acquisto €"><input className="input mono" type="number" value={f.costo_acq} onChange={e => set('costo_acq', e.target.value)} /></Field>
-        <Field label="Prezzo vendita €"><input className="input mono" type="number" value={f.prezzo_vend} onChange={e => set('prezzo_vend', e.target.value)} /></Field>
+        {!isNew && <Field label="Stock"><input className="input mono" type="number" value={f.stock} onChange={e => set('stock', e.target.value)} onFocus={e => { if (Number(f.stock) === 0) set('stock', ''); e.target.select(); }} /></Field>}
+        <Field label="Stock minimo"><input className="input mono" type="number" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} onFocus={e => { if (Number(f.min_stock) === 0) set('min_stock', ''); e.target.select(); }} /></Field>
+        <Field label="Costo acquisto €"><input className="input mono" type="number" value={f.costo_acq} onChange={e => set('costo_acq', e.target.value)} onFocus={e => { if (Number(f.costo_acq) === 0) set('costo_acq', ''); e.target.select(); }} /></Field>
+        <Field label="Prezzo vendita €"><input className="input mono" type="number" value={f.prezzo_vend} onChange={e => set('prezzo_vend', e.target.value)} onFocus={e => { if (Number(f.prezzo_vend) === 0) set('prezzo_vend', ''); e.target.select(); }} /></Field>
       </div>
       <Field label="Fornitore"><input className="input" value={f.fornitore} onChange={e => set('fornitore', e.target.value)} /></Field>
 
