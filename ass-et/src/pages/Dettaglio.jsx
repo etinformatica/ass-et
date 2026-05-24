@@ -161,6 +161,16 @@ export default function Dettaglio() {
     catch (e) { alert('Errore: ' + e.message); }
   }
 
+  async function saveDataIntervento(isoDate) {
+    try {
+      const old = new Date(t.created_at);
+      const [y, m, d] = isoDate.split('-').map(Number);
+      const nuovo = new Date(y, m - 1, d, old.getHours(), old.getMinutes(), old.getSeconds());
+      await interventiApi.update(t.id, { created_at: nuovo.toISOString() });
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
+  }
+
   return (
     <main className="main">
       <Topbar
@@ -185,8 +195,10 @@ export default function Dettaglio() {
               {pezzi.length > 0 && <Badge tone="gray" dot={false}>{pezzi.length} pezz{pezzi.length > 1 ? 'i' : 'o'} · €{pezziVendita}</Badge>}
             </div>
             <div className="page-title">{t.dispositivo} · {t.cliente?.nome || '—'}</div>
-            <div className="page-sub">
-              Aperto {new Date(t.created_at).toLocaleDateString('it-IT')} · Tecnico {t.tecnico?.nome || '—'} · Tel {t.cliente?.tel || '—'}
+            <div className="page-sub row center" style={{ gap: 6, flexWrap: 'wrap' }}>
+              <span>Aperto</span>
+              <EditData key={`d-${t.created_at}`} value={t.created_at} onSave={saveDataIntervento} />
+              <span>· Tecnico {t.tecnico?.nome || '—'} · Tel {t.cliente?.tel || '—'}</span>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
@@ -828,6 +840,26 @@ function CaricoPezzoModal({ pezzo, onClose, onSave }) {
         </div>
       </div>
     </Modal>
+  );
+}
+
+function EditData({ value, onSave }) {
+  const iso = value ? new Date(value).toISOString().slice(0, 10) : '';
+  const [v, setV] = useState(iso);
+  function commit() {
+    if (v && v !== iso) onSave(v);
+  }
+  return (
+    <input
+      type="date"
+      className="input mono"
+      value={v}
+      onChange={e => setV(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+      title="Modifica data intervento"
+      style={{ padding: '2px 6px', fontSize: 12, color: 'var(--hf-text-2)', border: '1px dashed var(--hf-border-2)', background: 'transparent', borderRadius: 4 }}
+    />
   );
 }
 
