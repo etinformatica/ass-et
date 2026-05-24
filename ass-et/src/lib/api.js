@@ -175,6 +175,9 @@ export const interventiApi = {
         .single()
     );
   },
+  async removeAttivita(id) {
+    return chk(await supabase.from('intervento_attivita').delete().eq('id', id));
+  },
   async addPezzo(intervento_id, p) {
     return chk(
       await supabase

@@ -5,7 +5,7 @@ import { Loading, ErrorState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
 import { useImpostazioni } from '../lib/useImpostazioni';
-import { interventiApi, magazzinoApi, fotoApi, fornitoriApi } from '../lib/api';
+import { interventiApi, magazzinoApi, fotoApi, fornitoriApi, carichiApi } from '../lib/api';
 import { STATI, STATUS_TRACK, STATO_TONE } from '../lib/stati';
 
 export default function Dettaglio() {
@@ -17,6 +17,7 @@ export default function Dettaglio() {
   const [notaModal, setNotaModal] = useState(false);
   const [pezzoModal, setPezzoModal] = useState(false);
   const [delModal, setDelModal] = useState(false);
+  const [caricoPezzo, setCaricoPezzo] = useState(null);
   const [busy, setBusy] = useState(false);
 
   if (loading) return <main className="main"><Topbar crumbs={['Interventi', '…']} /><div className="content"><Loading /></div></main>;
@@ -104,6 +105,53 @@ export default function Dettaglio() {
     try {
       await interventiApi.removePezzo(p.id);
       await persistTotalsFromPezzi(pezzi.filter(x => x.id !== p.id));
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
+  }
+
+  async function deleteAttivita(a) {
+    if (!window.confirm(`Eliminare questa attività?\n\n"${a.testo}"`)) return;
+    try {
+      await interventiApi.removeAttivita(a.id);
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
+  }
+
+  async function saveCaricoPezzo(form) {
+    try {
+      const p = caricoPezzo;
+      let magazzino_id = p.magazzino_id;
+      if (!magazzino_id) {
+        const articolo = await magazzinoApi.create({
+          sku: p.sku || null,
+          nome: p.nome,
+          categoria: 'Accessori',
+          stock: 0,
+          min_stock: 0,
+          costo_acq: Number(form.costo_acq) || 0,
+          prezzo_vend: Number(p.prezzo_vend) || 0,
+          fornitore: form.fornitore_nome || '',
+        });
+        magazzino_id = articolo.id;
+        await interventiApi.updatePezzo(p.id, { magazzino_id, stato: 'A stock', stato_tone: 'green' });
+      }
+      await carichiApi.create({
+        magazzino_id,
+        fornitore_id: form.fornitore_id || null,
+        sku: p.sku || null,
+        nome: p.nome,
+        qty: Number(form.qty) || p.qty,
+        costo_acq: Number(form.costo_acq) || 0,
+        numero_fattura: form.numero_fattura?.trim() || null,
+        fornitore: form.fornitore_nome || null,
+        data_carico: form.data_carico,
+      });
+      await interventiApi.addAttivita(t.id, {
+        autore: tecnicoNome,
+        tipo: 'nota',
+        testo: `Carico registrato: ${p.nome} · Fatt. ${form.numero_fattura || '—'} · ${form.fornitore_nome || 'fornitore non assegnato'}`,
+      });
+      setCaricoPezzo(null);
       reload();
     } catch (e) { alert('Errore: ' + e.message); }
   }
@@ -200,13 +248,18 @@ export default function Dettaglio() {
               <div style={{ height: 6 }} />
               <div className="col" style={{ gap: 14 }}>
                 {attivita.filter(a => ['diagnosi', 'nota', 'accettazione'].includes(a.tipo)).map(a => (
-                  <div key={a.id}>
+                  <div key={a.id} className="attivita-item" style={{ position: 'relative' }}>
                     <div className="row center" style={{ gap: 8, marginBottom: 4 }}>
                       <Avatar name={a.autore} tone={a.autore === tecnicoNome ? tecnicoTone : 'gray'} size="sm" />
                       <span style={{ fontWeight: 500, fontSize: 13 }}>{a.autore}</span>
                       <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
                         {new Date(a.created_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · {a.tipo}
                       </span>
+                      <button className="btn ghost sm attivita-del" title="Elimina"
+                        onClick={() => deleteAttivita(a)}
+                        style={{ marginLeft: 'auto', padding: 2, opacity: 0.5 }}>
+                        <Icon name="trash" />
+                      </button>
                     </div>
                     <div style={{ marginLeft: 30, fontSize: 13, color: 'var(--hf-text-2)' }}>{a.testo}</div>
                   </div>
@@ -234,8 +287,13 @@ export default function Dettaglio() {
                           <EditNum key={`v-${p.id}-${p.prezzo_vend}`} value={p.prezzo_vend} step={0.01} onSave={n => updatePezzo(p, { prezzo_vend: n })} width={80} mono />
                         </span></td>
                         <td><Badge tone={p.stato_tone}>{p.stato}</Badge></td>
-                        <td>
-                          <button className="btn ghost sm" style={{ padding: 4 }} onClick={() => deletePezzo(p)}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <button className="btn ghost sm" title="Registra carico (fattura/data/fornitore)"
+                            style={{ padding: 4 }} onClick={() => setCaricoPezzo(p)}>
+                            <Icon name="box" />
+                          </button>
+                          <button className="btn ghost sm" title="Elimina pezzo"
+                            style={{ padding: 4 }} onClick={() => deletePezzo(p)}>
                             <Icon name="trash" />
                           </button>
                         </td>
@@ -260,7 +318,11 @@ export default function Dettaglio() {
                       {new Date(a.created_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', marginTop: 7, flex: 'none', background: a.tipo === 'sms' ? 'var(--hf-blue)' : a.tipo === 'diagnosi' ? 'var(--hf-green)' : a.tipo === 'stato' ? 'var(--hf-amber)' : 'var(--hf-text-3)' }} />
-                    <span style={{ color: 'var(--hf-text-2)' }}><b>{a.autore}</b> · {a.testo}</span>
+                    <span style={{ color: 'var(--hf-text-2)', flex: 1, minWidth: 0 }}><b>{a.autore}</b> · {a.testo}</span>
+                    <button className="btn ghost sm" title="Elimina" onClick={() => deleteAttivita(a)}
+                      style={{ padding: 2, opacity: 0.4, flex: 'none' }}>
+                      <Icon name="trash" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -378,6 +440,7 @@ export default function Dettaglio() {
       {statoModal && <StatoModal current={t.stato} onPick={changeStato} onClose={() => setStatoModal(false)} busy={busy} />}
       {notaModal && <NotaModal interventoId={t.id} autoreDefault={tecnicoNome} onClose={() => setNotaModal(false)} onSaved={() => { setNotaModal(false); reload(); }} />}
       {pezzoModal && <PezzoModal interventoId={t.id} onClose={() => setPezzoModal(false)} onSaved={() => { setPezzoModal(false); reload(); }} />}
+      {caricoPezzo && <CaricoPezzoModal pezzo={caricoPezzo} onClose={() => setCaricoPezzo(null)} onSave={saveCaricoPezzo} />}
       {delModal && <ConfirmDialog message={`Eliminare l'intervento #${t.numero}? Operazione irreversibile.`} onConfirm={doDelete} onClose={() => setDelModal(false)} busy={busy} />}
     </main>
   );
@@ -689,6 +752,82 @@ function EditNum({ value, onSave, min, step = 1, width = 60, mono = false }) {
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
       style={{ width, textAlign: 'right', padding: '4px 8px', fontSize: 12 }}
     />
+  );
+}
+
+function CaricoPezzoModal({ pezzo, onClose, onSave }) {
+  const { data: fornitori } = useData(() => fornitoriApi.list(), []);
+  const oggi = new Date().toISOString().slice(0, 10);
+  const [f, setF] = useState({
+    numero_fattura: '',
+    data_carico: oggi,
+    fornitore_id: pezzo.fornitore_id || '',
+    qty: pezzo.qty || 1,
+    costo_acq: pezzo.costo_acq || 0,
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+  const isGenerico = !pezzo.magazzino_id;
+
+  async function submit() {
+    if (!f.fornitore_id) { alert('Seleziona il fornitore.'); return; }
+    const fornitoreSel = (fornitori || []).find(x => x.id === f.fornitore_id);
+    setBusy(true);
+    await onSave({
+      ...f,
+      fornitore_nome: fornitoreSel?.nome || '',
+    });
+    setBusy(false);
+  }
+
+  return (
+    <Modal
+      title={`Registra carico — ${pezzo.nome}`}
+      onClose={onClose}
+      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={submit}>{busy ? 'Salvo…' : 'Salva carico'}</Btn></>}
+    >
+      {isGenerico && (
+        <div style={{ background: 'var(--hf-amber-soft)', color: 'var(--hf-amber)', padding: '8px 10px', borderRadius: 6, fontSize: 12, marginBottom: 4 }}>
+          Pezzo generico: verrà creato un articolo a catalogo magazzino al primo carico.
+        </div>
+      )}
+      <Field label="Fornitore *">
+        <select className="input" value={f.fornitore_id} onChange={e => set('fornitore_id', e.target.value)}>
+          <option value="">— seleziona —</option>
+          {(fornitori || []).map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+        </select>
+      </Field>
+      <div className="row" style={{ gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="N° fattura">
+            <input className="input" value={f.numero_fattura} onChange={e => set('numero_fattura', e.target.value)} placeholder="es. 2026/0123" />
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Data">
+            <input className="input" type="date" value={f.data_carico} onChange={e => set('data_carico', e.target.value)} />
+          </Field>
+        </div>
+      </div>
+      <div className="row" style={{ gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Quantità">
+            <input className="input" type="number" min="1" value={f.qty}
+              onChange={e => set('qty', e.target.value)}
+              onFocus={e => { if (Number(f.qty) === 0) set('qty', ''); e.currentTarget.select(); }}
+              onBlur={() => { if (f.qty === '') set('qty', pezzo.qty || 1); }} />
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="€ costo">
+            <input className="input mono" type="number" step="0.01" value={f.costo_acq}
+              onChange={e => set('costo_acq', e.target.value)}
+              onFocus={e => { if (Number(f.costo_acq) === 0) set('costo_acq', ''); e.currentTarget.select(); }}
+              onBlur={() => { if (f.costo_acq === '') set('costo_acq', 0); }} />
+          </Field>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
