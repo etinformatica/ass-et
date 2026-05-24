@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Badge, Btn, Topbar, Icon } from '../components/UI';
 import { Loading, ErrorState, EmptyState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
-import { fornitoriApi, carichiApi, magazzinoApi } from '../lib/api';
+import { fornitoriApi, carichiApi, magazzinoApi, pezziApi, interventiApi } from '../lib/api';
 import { GruppoCarico } from '../components/Carichi';
 import { groupByFattura } from '../lib/carichi';
 
@@ -19,8 +19,10 @@ export default function Fornitori() {
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [caricoModal, setCaricoModal] = useState(null); // null | { fornitoreId }
+  const [caricoModal, setCaricoModal] = useState(null); // null | { fornitoreId, ricezione? }
+  const [ricezioneModal, setRicezioneModal] = useState(null); // null | pezzoIntervento
   const [reloadTick, setReloadTick] = useState(0);
+  const [tab, setTab] = useState('anagrafica'); // 'anagrafica' | 'ordinare'
 
   const list = fornitori.data || [];
   const filtered = list.filter(f => {
@@ -83,20 +85,35 @@ export default function Fornitori() {
             <div className="page-title">Fornitori</div>
             <div className="page-sub">{list.length} anagrafiche · clicca un fornitore per vedere lo storico dei carichi</div>
           </div>
-          <label className="search-box" style={{ minWidth: 280 }}>
-            <Icon name="search" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Cerca nome, tel, email, P.IVA…" autoComplete="off" />
-          </label>
+          {tab === 'anagrafica' && (
+            <label className="search-box" style={{ minWidth: 280 }}>
+              <Icon name="search" />
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Cerca nome, tel, email, P.IVA…" autoComplete="off" />
+            </label>
+          )}
         </div>
 
-        {fornitori.loading && <Loading />}
-        {fornitori.error && <ErrorState error={fornitori.error} onRetry={fornitori.reload} />}
+        <div className="tabs">
+          <div className={`tab ${tab === 'anagrafica' ? 'active' : ''}`} onClick={() => setTab('anagrafica')}>Anagrafica</div>
+          <div className={`tab ${tab === 'ordinare' ? 'active' : ''}`} onClick={() => setTab('ordinare')}>Da ordinare</div>
+        </div>
 
-        {!fornitori.loading && !fornitori.error && list.length === 0 && (
+        {tab === 'ordinare' && (
+          <DaOrdinareView
+            fornitori={list}
+            onRicevuto={(p) => setRicezioneModal(p)}
+            reloadKey={reloadTick}
+          />
+        )}
+
+        {tab === 'anagrafica' && fornitori.loading && <Loading />}
+        {tab === 'anagrafica' && fornitori.error && <ErrorState error={fornitori.error} onRetry={fornitori.reload} />}
+
+        {tab === 'anagrafica' && !fornitori.loading && !fornitori.error && list.length === 0 && (
           <div className="card"><EmptyState title="Nessun fornitore" sub="Crea la prima anagrafica per usarla nei carichi merce." action={<Btn tone="primary" icon="plus" onClick={() => setEditing({ ...EMPTY })}>Nuovo fornitore</Btn>} /></div>
         )}
 
-        {!fornitori.loading && !fornitori.error && list.length > 0 && (
+        {tab === 'anagrafica' && !fornitori.loading && !fornitori.error && list.length > 0 && (
           <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1.6fr' : '1fr', gap: 16, minHeight: 0 }}>
             <div className="table-wrap">
               <table className="data-table">
@@ -144,6 +161,16 @@ export default function Fornitori() {
           onFornitoriReload={fornitori.reload}
           onClose={() => setCaricoModal(null)}
           onSaved={() => { setCaricoModal(null); setReloadTick(t => t + 1); articoli.reload(); }}
+        />
+      )}
+      {ricezioneModal && (
+        <RicezionePezzoModal
+          pezzo={ricezioneModal}
+          fornitori={list}
+          articoli={articoli.data || []}
+          onFornitoriReload={fornitori.reload}
+          onClose={() => setRicezioneModal(null)}
+          onSaved={() => { setRicezioneModal(null); setReloadTick(t => t + 1); articoli.reload(); }}
         />
       )}
     </main>
@@ -572,6 +599,353 @@ function FornitoreForm({ initial, onClose, onSave, busy }) {
       <Field label="Indirizzo"><input className="input" value={f.indirizzo} onChange={e => set('indirizzo', e.target.value)} /></Field>
       <Field label="P.IVA"><input className="input mono" value={f.p_iva} onChange={e => set('p_iva', e.target.value)} /></Field>
       <Field label="Note"><textarea className="input" rows={2} value={f.note} onChange={e => set('note', e.target.value)} /></Field>
+    </Modal>
+  );
+}
+
+// ============================================================
+// Vista "Da ordinare": pezzi intervento con stato="Da ordinare",
+// raggruppati per fornitore (suggerito o "Senza fornitore").
+// ============================================================
+function DaOrdinareView({ onRicevuto, reloadKey }) {
+  const pezzi = useData(() => pezziApi.listDaOrdinare(), [reloadKey]);
+  const list = pezzi.data || [];
+
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const p of (pezzi.data || [])) {
+      const fid = p.fornitore_id || '_senza_';
+      if (!map.has(fid)) {
+        map.set(fid, {
+          fid,
+          nome: p.fornitore_rel?.nome || '— Senza fornitore assegnato —',
+          righe: [],
+        });
+      }
+      map.get(fid).righe.push(p);
+    }
+    const arr = Array.from(map.values()).map(g => ({
+      ...g,
+      pezziTot: g.righe.reduce((s, r) => s + Number(r.qty || 0), 0),
+      costoTot: g.righe.reduce((s, r) => s + Number(r.qty || 0) * Number(r.costo_acq || 0), 0),
+    }));
+    // "Senza fornitore" sempre per primo (più urgente da assegnare)
+    arr.sort((a, b) => {
+      if (a.fid === '_senza_') return -1;
+      if (b.fid === '_senza_') return 1;
+      return a.nome.localeCompare(b.nome);
+    });
+    return arr;
+  }, [pezzi.data]);
+
+  if (pezzi.loading) return <Loading />;
+  if (pezzi.error) return <ErrorState error={pezzi.error} onRetry={pezzi.reload} />;
+
+  if (list.length === 0) {
+    return (
+      <div className="card">
+        <EmptyState
+          title="Nessun pezzo da ordinare"
+          sub="Quando in un intervento aggiungi un pezzo non a stock (o un pezzo generico), compare qui."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="col" style={{ gap: 14 }}>
+      <div style={{ fontSize: 13, color: 'var(--hf-text-3)' }}>
+        {list.length} pezz{list.length > 1 ? 'i' : 'o'} da ordinare · raggruppati per fornitore suggerito.
+        Clicca "Arrivato" quando ricevi il pezzo per registrare il carico e aggiornare l'intervento.
+      </div>
+      {groups.map(g => (
+        <div key={g.fid} className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '10px 14px', background: 'var(--hf-surface-2)', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--hf-border)', flexWrap: 'wrap' }}>
+            {g.fid === '_senza_' ? (
+              <Badge tone="amber">{g.nome}</Badge>
+            ) : (
+              <Link to={`/fornitori/${g.fid}`} style={{ color: 'var(--hf-accent)', fontWeight: 600, textDecoration: 'none', fontSize: 14 }}>{g.nome}</Link>
+            )}
+            <div style={{ flex: 1 }} />
+            <span style={{ fontSize: 12, color: 'var(--hf-text-3)' }}>
+              {g.righe.length} pezz{g.righe.length > 1 ? 'i' : 'o'} · {g.pezziTot} totali
+            </span>
+            <span className="mono strong" style={{ fontSize: 13 }}>~ € {g.costoTot.toFixed(2).replace('.', ',')}</span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Pezzo</th>
+                  <th>Intervento · Cliente</th>
+                  <th style={{ textAlign: 'right' }}>Q.</th>
+                  <th style={{ textAlign: 'right' }}>€ stim.</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.righe.map(r => (
+                  <tr key={r.id}>
+                    <td>
+                      <div className="strong">{r.nome}</div>
+                      {r.descrizione && <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>{r.descrizione}</div>}
+                      {!r.magazzino_id && <Badge tone="violet" dot={false}>generico</Badge>}
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      <Link to={`/interventi/${r.intervento?.id}`} style={{ color: 'var(--hf-accent)', textDecoration: 'none' }}>#{r.intervento?.numero}</Link>
+                      <div style={{ color: 'var(--hf-text-3)' }}>{r.intervento?.cliente?.nome || '—'} · {r.intervento?.dispositivo || ''}</div>
+                    </td>
+                    <td className="mono" style={{ textAlign: 'right' }}>{r.qty}</td>
+                    <td className="mono" style={{ textAlign: 'right', color: 'var(--hf-text-3)' }}>{r.costo_acq != null ? `€ ${r.costo_acq}` : '—'}</td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <Btn size="sm" tone="accent" onClick={() => onRicevuto(r)}>✓ Arrivato</Btn>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// RicezionePezzoModal: registra il carico di un singolo pezzo
+// (eventualmente generico → crea anche l'articolo a catalogo)
+// e linka il pezzo intervento al magazzino_id.
+// ============================================================
+const CATEGORIE_ART = ['Accessori', 'Storage', 'Memorie', 'Display', 'Batterie', 'Tastiere'];
+
+function RicezionePezzoModal({ pezzo, fornitori, articoli, onFornitoriReload, onClose, onSaved }) {
+  const oggi = new Date().toISOString().slice(0, 10);
+  const generic = !pezzo.magazzino_id;
+
+  const [fornitoreId, setFornitoreId] = useState(pezzo.fornitore_id || '');
+  const [data, setData] = useState(oggi);
+  const [numero, setNumero] = useState('');
+  const [qty, setQty] = useState(pezzo.qty || 1);
+  const [costo, setCosto] = useState(pezzo.costo_acq != null ? String(pezzo.costo_acq) : '');
+
+  // Solo per pezzo generico: dati per creare l'articolo a catalogo
+  const [nuovoArt, setNuovoArt] = useState({
+    sku: '', nome: pezzo.nome || '', categoria: 'Accessori',
+    prezzo_vend: pezzo.prezzo_vend != null ? String(pezzo.prezzo_vend) : '',
+    min_stock: 0,
+  });
+  // Per pezzi NON generici: opzione di sovrascrivere il magazzino_id (default: già quello del pezzo)
+  const setNA = (k, v) => setNuovoArt(s => ({ ...s, [k]: v }));
+
+  const [nuovoForn, setNuovoForn] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function creaFornitoreInline() {
+    if (!nuovoForn?.nome?.trim()) { setErr('Il nome del fornitore è obbligatorio.'); return; }
+    setBusy(true); setErr(null);
+    try {
+      const up = v => (typeof v === 'string' ? v.toUpperCase() : v);
+      const created = await fornitoriApi.create({
+        nome: up(nuovoForn.nome.trim()),
+        tel: nuovoForn.tel?.trim() || null,
+        p_iva: up(nuovoForn.p_iva?.trim() || ''),
+      });
+      await onFornitoriReload();
+      setFornitoreId(created.id);
+      setNuovoForn(null);
+    } catch (e) {
+      setErr('Errore creazione fornitore: ' + (e.message || 'duplicato?'));
+    } finally { setBusy(false); }
+  }
+
+  async function submit() {
+    setErr(null);
+    if (!(Number(qty) > 0)) { setErr('Quantità non valida.'); return; }
+    if (generic && !nuovoArt.nome.trim()) { setErr('Indica il nome dell\'articolo da creare a catalogo.'); return; }
+
+    setBusy(true);
+    try {
+      const up = v => (typeof v === 'string' ? v.toUpperCase() : v);
+      let magazzinoId = pezzo.magazzino_id;
+      let articoloSku = pezzo.sku;
+      let articoloNome = pezzo.nome;
+
+      // Se generico → crea articolo magazzino
+      if (generic) {
+        const created = await magazzinoApi.create({
+          sku: nuovoArt.sku?.trim() ? up(nuovoArt.sku.trim()) : null,
+          nome: up(nuovoArt.nome.trim()),
+          categoria: nuovoArt.categoria,
+          stock: 0,
+          min_stock: Number(nuovoArt.min_stock) || 0,
+          costo_acq: costo === '' ? 0 : Number(costo),
+          prezzo_vend: nuovoArt.prezzo_vend === '' ? 0 : Number(nuovoArt.prezzo_vend),
+          fornitore: null,
+        });
+        magazzinoId = created.id;
+        articoloSku = created.sku;
+        articoloNome = created.nome;
+      }
+
+      const fornitoreObj = (fornitori || []).find(f => f.id === fornitoreId);
+
+      // Crea il carico (trigger incrementa stock)
+      await carichiApi.create({
+        magazzino_id: magazzinoId,
+        sku: articoloSku,
+        nome: articoloNome,
+        qty: Number(qty),
+        costo_acq: costo === '' ? null : Number(costo),
+        numero_fattura: numero.trim() || null,
+        fornitore_id: fornitoreId || null,
+        fornitore: fornitoreObj ? fornitoreObj.nome : null,
+        data_carico: data || oggi,
+      });
+
+      // Aggiorna il pezzo intervento: collega al magazzino + stato A stock
+      await interventiApi.updatePezzo(pezzo.id, {
+        magazzino_id: magazzinoId,
+        sku: articoloSku,
+        costo_acq: costo === '' ? 0 : Number(costo),
+        stato: 'A stock',
+        stato_tone: 'green',
+      });
+
+      onSaved();
+    } catch (e) {
+      setErr('Errore: ' + (e.message || 'salvataggio fallito'));
+    } finally { setBusy(false); }
+  }
+
+  // Riconciliazione: articolo già a catalogo da abbinare a pezzo generico
+  // (per non duplicare articolo se l'utente nel frattempo l'ha già creato).
+  const [riconcOpen, setRiconcOpen] = useState(false);
+  const [riconcId, setRiconcId] = useState('');
+
+  async function submitRiconcilia() {
+    if (!riconcId) { setErr('Seleziona l\'articolo a catalogo da abbinare.'); return; }
+    const a = articoli.find(x => x.id === riconcId);
+    if (!a) { setErr('Articolo non trovato.'); return; }
+    setBusy(true); setErr(null);
+    try {
+      const fornitoreObj = (fornitori || []).find(f => f.id === fornitoreId);
+      await carichiApi.create({
+        magazzino_id: a.id,
+        sku: a.sku,
+        nome: a.nome,
+        qty: Number(qty),
+        costo_acq: costo === '' ? null : Number(costo),
+        numero_fattura: numero.trim() || null,
+        fornitore_id: fornitoreId || null,
+        fornitore: fornitoreObj ? fornitoreObj.nome : null,
+        data_carico: data || oggi,
+      });
+      await interventiApi.updatePezzo(pezzo.id, {
+        magazzino_id: a.id, sku: a.sku,
+        costo_acq: costo === '' ? 0 : Number(costo),
+        stato: 'A stock', stato_tone: 'green',
+      });
+      onSaved();
+    } catch (e) {
+      setErr('Errore: ' + (e.message || 'salvataggio fallito'));
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Modal
+      title={`Ricezione pezzo · ${pezzo.nome}`}
+      width={620}
+      onClose={onClose}
+      footer={
+        riconcOpen
+          ? <><Btn onClick={() => setRiconcOpen(false)}>Annulla</Btn><Btn tone="accent" onClick={submitRiconcilia}>{busy ? 'Salvo…' : 'Salva ricezione'}</Btn></>
+          : <><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={submit}>{busy ? 'Salvo…' : 'Salva ricezione'}</Btn></>
+      }
+    >
+      {err && (
+        <div className="card" style={{ borderColor: 'var(--hf-red)', background: 'var(--hf-red-soft)', color: 'var(--hf-red)', fontSize: 13, padding: '8px 12px' }}>
+          ⚠ {err}
+        </div>
+      )}
+      <div className="card tinted" style={{ padding: 10, fontSize: 12 }}>
+        <div><b>{pezzo.nome}</b> · qty richiesta {pezzo.qty}</div>
+        {pezzo.intervento && <div style={{ color: 'var(--hf-text-3)' }}>Per intervento #{pezzo.intervento.numero} · {pezzo.intervento.cliente?.nome || ''}</div>}
+      </div>
+
+      <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 10 }}>
+        <div>
+          <span className="field-label">Fornitore</span>
+          {nuovoForn ? (
+            <div className="card tinted" style={{ padding: 8 }}>
+              <Field label="Nome"><input className="input" value={nuovoForn.nome} onChange={e => setNuovoForn(s => ({ ...s, nome: e.target.value }))} autoFocus /></Field>
+              <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <Field label="Tel"><input className="input mono" type="tel" value={nuovoForn.tel || ''} onChange={e => setNuovoForn(s => ({ ...s, tel: e.target.value }))} /></Field>
+                <Field label="P.IVA"><input className="input mono" value={nuovoForn.p_iva || ''} onChange={e => setNuovoForn(s => ({ ...s, p_iva: e.target.value }))} /></Field>
+              </div>
+              <div className="row" style={{ gap: 4 }}>
+                <Btn size="sm" onClick={() => setNuovoForn(null)}>annulla</Btn>
+                <Btn size="sm" tone="accent" onClick={creaFornitoreInline}>Crea e usa</Btn>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <select className="input" value={fornitoreId} onChange={e => setFornitoreId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">— nessuno —</option>
+                {(fornitori || []).map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+              <Btn size="sm" onClick={() => setNuovoForn({ nome: '', tel: '', p_iva: '' })}>+ nuovo</Btn>
+            </div>
+          )}
+        </div>
+        <Field label="Data carico"><input className="input mono" type="date" value={data} onChange={e => setData(e.target.value)} /></Field>
+        <Field label="N° fattura"><input className="input mono" value={numero} onChange={e => setNumero(e.target.value)} placeholder="es. 2026/142" /></Field>
+      </div>
+
+      <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <Field label="Quantità ricevuta"><input className="input mono" type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} /></Field>
+        <Field label="Costo cad. effettivo €"><input className="input mono" type="number" step="0.01" value={costo} onChange={e => setCosto(e.target.value)} placeholder="0,00" /></Field>
+      </div>
+
+      {generic && !riconcOpen && (
+        <div style={{ border: '1px solid var(--hf-border)', borderRadius: 8, padding: 12, background: 'var(--hf-surface)' }}>
+          <div className="row between" style={{ alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ fontSize: 13 }}>📦 Crea articolo a catalogo</strong>
+            <Btn size="sm" onClick={() => setRiconcOpen(true)}>Esiste già a catalogo →</Btn>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--hf-text-3)', marginBottom: 8 }}>
+            Il pezzo è generico (no anagrafica): salvando creo l'articolo a magazzino + il carico, e lo collego all'intervento.
+          </div>
+          <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 8 }}>
+            <Field label="SKU (facoltativo)"><input className="input mono" value={nuovoArt.sku} onChange={e => setNA('sku', e.target.value)} /></Field>
+            <Field label="Nome catalogo"><input className="input" value={nuovoArt.nome} onChange={e => setNA('nome', e.target.value)} /></Field>
+            <Field label="Categoria">
+              <select className="input" value={nuovoArt.categoria} onChange={e => setNA('categoria', e.target.value)}>
+                {CATEGORIE_ART.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </Field>
+          </div>
+          <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <Field label="Prezzo vendita € cad."><input className="input mono" type="number" step="0.01" value={nuovoArt.prezzo_vend} onChange={e => setNA('prezzo_vend', e.target.value)} placeholder="0,00" /></Field>
+            <Field label="Scorta minima"><input className="input mono" type="number" min={0} value={nuovoArt.min_stock} onChange={e => setNA('min_stock', e.target.value)} /></Field>
+          </div>
+        </div>
+      )}
+
+      {generic && riconcOpen && (
+        <div style={{ border: '1px solid var(--hf-border)', borderRadius: 8, padding: 12, background: 'var(--hf-surface)' }}>
+          <div className="row between" style={{ alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ fontSize: 13 }}>🔗 Abbina ad articolo esistente</strong>
+            <Btn size="sm" onClick={() => setRiconcOpen(false)}>← crea nuovo</Btn>
+          </div>
+          <Field label="Articolo a catalogo">
+            <select className="input" value={riconcId} onChange={e => setRiconcId(e.target.value)}>
+              <option value="">— seleziona —</option>
+              {(articoli || []).map(a => <option key={a.id} value={a.id}>{a.nome}{a.sku ? ` (${a.sku})` : ''} · stock {a.stock}</option>)}
+            </select>
+          </Field>
+        </div>
+      )}
     </Modal>
   );
 }

@@ -5,7 +5,7 @@ import { Loading, ErrorState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
 import { useImpostazioni } from '../lib/useImpostazioni';
-import { interventiApi, magazzinoApi, fotoApi } from '../lib/api';
+import { interventiApi, magazzinoApi, fotoApi, fornitoriApi } from '../lib/api';
 import { STATI, STATUS_TRACK } from '../lib/stati';
 
 export default function Dettaglio() {
@@ -527,13 +527,28 @@ function NotaModal({ interventoId, autoreDefault, onClose, onSaved }) {
 
 function PezzoModal({ interventoId, onClose, onSaved }) {
   const { data: mag, loading } = useData(() => magazzinoApi.list(), []);
+  const { data: forn } = useData(() => fornitoriApi.list(), []);
+  const [tab, setTab] = useState('magazzino'); // 'magazzino' | 'generico'
+
+  // --- tab Da magazzino
   const [sel, setSel] = useState('');
   const [qty, setQty] = useState(1);
+
+  // --- tab Generico
+  const [gen, setGen] = useState({
+    nome: '', descrizione: '', qty: 1,
+    costo_acq: '', prezzo_vend: '',
+    fornitore_id: '', note: '',
+  });
+
   const [busy, setBusy] = useState(false);
-  async function save() {
+  const [err, setErr] = useState(null);
+  const setG = (k, v) => setGen(s => ({ ...s, [k]: v }));
+
+  async function saveMagazzino() {
     const a = (mag || []).find(m => m.id === sel);
-    if (!a) return;
-    setBusy(true);
+    if (!a) { setErr('Seleziona un articolo.'); return; }
+    setBusy(true); setErr(null);
     try {
       await interventiApi.addPezzo(interventoId, {
         magazzino_id: a.id, sku: a.sku, nome: a.nome, qty: Number(qty),
@@ -544,21 +559,81 @@ function PezzoModal({ interventoId, onClose, onSaved }) {
       onSaved();
     } catch (e) { alert('Errore: ' + e.message); setBusy(false); }
   }
+  async function saveGenerico() {
+    if (!gen.nome.trim()) { setErr('Il nome del pezzo è obbligatorio.'); return; }
+    if (!(Number(gen.qty) > 0)) { setErr('Quantità non valida.'); return; }
+    setBusy(true); setErr(null);
+    try {
+      const up = v => (typeof v === 'string' ? v.toUpperCase() : v);
+      await interventiApi.addPezzo(interventoId, {
+        magazzino_id: null,
+        fornitore_id: gen.fornitore_id || null,
+        sku: null,
+        nome: up(gen.nome.trim()),
+        descrizione: up(gen.descrizione.trim() || ''),
+        note: up(gen.note.trim() || ''),
+        qty: Number(gen.qty),
+        costo_acq: gen.costo_acq === '' ? 0 : Number(gen.costo_acq),
+        prezzo_vend: gen.prezzo_vend === '' ? 0 : Number(gen.prezzo_vend),
+        stato: 'Da ordinare',
+        stato_tone: 'amber',
+      });
+      onSaved();
+    } catch (e) { alert('Errore: ' + e.message); setBusy(false); }
+  }
+  const save = tab === 'magazzino' ? saveMagazzino : saveGenerico;
+
   return (
-    <Modal title="Aggiungi pezzo da magazzino" onClose={onClose}
-      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={save} >{busy ? 'Aggiungo…' : 'Aggiungi'}</Btn></>}>
-      {loading ? <Loading /> : (
+    <Modal title="Aggiungi pezzo" onClose={onClose} width={560}
+      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={save}>{busy ? 'Aggiungo…' : 'Aggiungi'}</Btn></>}>
+      <div className="tabs">
+        <div className={`tab ${tab === 'magazzino' ? 'active' : ''}`} onClick={() => setTab('magazzino')}>📦 Da magazzino</div>
+        <div className={`tab ${tab === 'generico' ? 'active' : ''}`} onClick={() => setTab('generico')}>✨ Generico · da ordinare</div>
+      </div>
+      {err && (
+        <div className="card" style={{ borderColor: 'var(--hf-red)', background: 'var(--hf-red-soft)', color: 'var(--hf-red)', fontSize: 13, padding: '8px 12px' }}>
+          ⚠ {err}
+        </div>
+      )}
+      {tab === 'magazzino' && (loading ? <Loading /> : (
         <>
           <Field label="Articolo">
             <select className="input" value={sel} onChange={e => setSel(e.target.value)}>
               <option value="">— seleziona —</option>
               {(mag || []).map(m => (
-                <option key={m.id} value={m.id}>{m.nome} ({m.sku}) · stock {m.stock} · € {m.prezzo_vend}</option>
+                <option key={m.id} value={m.id}>{m.nome}{m.sku ? ` (${m.sku})` : ''} · stock {m.stock} · € {m.prezzo_vend}</option>
               ))}
             </select>
           </Field>
           <Field label="Quantità">
-            <input className="input" type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} />
+            <input className="input mono" type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} />
+          </Field>
+        </>
+      ))}
+      {tab === 'generico' && (
+        <>
+          <div style={{ fontSize: 12, color: 'var(--hf-text-3)', marginTop: -4 }}>
+            Per pezzi non ancora a catalogo. Comparirà nella lista "Da ordinare" della pagina Fornitori.
+          </div>
+          <Field label="Nome pezzo">
+            <input className="input" value={gen.nome} onChange={e => setG('nome', e.target.value)} placeholder="Es: Vetro fotocamera iPhone 14 Pro" autoFocus />
+          </Field>
+          <Field label="Descrizione (facoltativa)">
+            <input className="input" value={gen.descrizione} onChange={e => setG('descrizione', e.target.value)} placeholder="Modello, codice ricambio, colore…" />
+          </Field>
+          <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <Field label="Quantità"><input className="input mono" type="number" min={1} value={gen.qty} onChange={e => setG('qty', e.target.value)} /></Field>
+            <Field label="Costo stimato € cad."><input className="input mono" type="number" step="0.01" value={gen.costo_acq} onChange={e => setG('costo_acq', e.target.value)} placeholder="0,00" /></Field>
+            <Field label="Prezzo vendita stimato € cad."><input className="input mono" type="number" step="0.01" value={gen.prezzo_vend} onChange={e => setG('prezzo_vend', e.target.value)} placeholder="0,00" /></Field>
+          </div>
+          <Field label="Fornitore suggerito (facoltativo)">
+            <select className="input" value={gen.fornitore_id} onChange={e => setG('fornitore_id', e.target.value)}>
+              <option value="">— non ancora deciso —</option>
+              {(forn || []).map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+            </select>
+          </Field>
+          <Field label="Note (facoltative)">
+            <textarea className="input" rows={2} value={gen.note} onChange={e => setG('note', e.target.value)} placeholder="Link, specifiche, alternative…" style={{ resize: 'vertical' }} />
           </Field>
         </>
       )}

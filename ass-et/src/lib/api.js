@@ -120,6 +120,18 @@ export const fornitoriApi = {
   },
 };
 
+// ---------------- PEZZI INTERVENTI ----------------
+// API trasversale ai pezzi di tutti gli interventi (vista "Da ordinare").
+export const pezziApi = {
+  async listDaOrdinare() {
+    return chk(await supabase
+      .from('intervento_pezzi')
+      .select('*, intervento:interventi!inner(id, numero, dispositivo, cliente:clienti(id, nome, tel)), fornitore_rel:fornitori(id, nome)')
+      .eq('stato', 'Da ordinare')
+      .order('created_at'));
+  },
+};
+
 // ---------------- INTERVENTI ----------------
 const INTERVENTO_SELECT = `
   *,
