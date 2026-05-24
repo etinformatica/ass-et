@@ -72,6 +72,18 @@ export default function Dettaglio() {
     } catch (e) { alert('Errore: ' + e.message); }
   }
 
+  async function saveTotale(nuovoTotale) {
+    try {
+      const mano = Math.max(0, Number(nuovoTotale) - pezziVendita);
+      await interventiApi.update(t.id, {
+        manodopera: mano,
+        totale_stimato: Number(nuovoTotale),
+        margine_atteso: Number(nuovoTotale) - pezziCosto,
+      });
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
+  }
+
   async function persistTotalsFromPezzi(pezziArray) {
     const v = pezziArray.reduce((s, x) => s + Number(x.prezzo_vend) * x.qty, 0);
     const c = pezziArray.reduce((s, x) => s + Number(x.costo_acq) * x.qty, 0);
@@ -266,14 +278,11 @@ export default function Dettaglio() {
                 <EditEuro key={`max-${t.max_preventivo}`} value={Number(t.max_preventivo) || 0} onSave={v => saveCosti({ max_preventivo: v })} />
               </div>
               <div className="col" style={{ gap: 10, fontSize: 13 }}>
-                <div className="row between" style={{ alignItems: 'center' }}>
-                  <span style={{ color: 'var(--hf-text-3)' }}>Manodopera</span>
-                  <EditEuro key={`man-${manodopera}`} value={manodopera} onSave={v => saveCosti({ manodopera: v })} />
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8 }}>
-                  <div style={{ color: 'var(--hf-text-3)', fontSize: 12, marginBottom: 6 }}>
-                    Pezzi {pezzi.length > 0 && <span>({pezzi.length})</span>}
+                <div>
+                  <div className="row between" style={{ alignItems: 'baseline', marginBottom: 6 }}>
+                    <span style={{ color: 'var(--hf-text-3)', fontSize: 12 }}>
+                      Pezzi {pezzi.length > 0 && <span>({pezzi.length})</span>}
+                    </span>
                   </div>
                   {pezzi.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--hf-text-4)' }}>Nessun pezzo assegnato.</div>
@@ -296,16 +305,21 @@ export default function Dettaglio() {
                   )}
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <div className="row between" style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8, alignItems: 'center' }}>
+                  <span style={{ color: 'var(--hf-text-3)' }}>Manodopera</span>
+                  <EditEuro key={`man-${manodopera}`} value={manodopera} onSave={v => saveCosti({ manodopera: v })} />
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--hf-border)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: 600 }}>Totale</span>
-                  <span style={{ fontWeight: 600, fontSize: 18 }}>€ {totale.toFixed(2).replace('.', ',')}</span>
+                  <EditEuro key={`tot-${totale}`} value={totale} onSave={saveTotale} bigger />
                 </div>
                 <div className="row between" style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
                   <span>Margine</span>
                   <span>€ {margine.toFixed(2).replace('.', ',')} · {totale ? Math.round((margine / totale) * 100) : 0}%</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>
-                  Manodopera e Max sono modificabili. I pezzi si aggiungono dalla sezione "Pezzi" qui sotto.
+                  Modifica il <strong>Totale</strong> e la manodopera viene ricalcolata automaticamente (Totale − pezzi).
                 </div>
               </div>
             </div>
@@ -678,7 +692,7 @@ function EditNum({ value, onSave, min, step = 1, width = 60, mono = false }) {
   );
 }
 
-function EditEuro({ value, onSave }) {
+function EditEuro({ value, onSave, bigger = false }) {
   const [v, setV] = useState(value ?? 0);
   function focus(e) {
     if (Number(v) === 0) setV('');
@@ -691,7 +705,7 @@ function EditEuro({ value, onSave }) {
   }
   return (
     <span className="row center" style={{ gap: 4 }}>
-      <span className="mono" style={{ color: 'var(--hf-text-3)' }}>€</span>
+      <span className="mono" style={{ color: 'var(--hf-text-3)', fontSize: bigger ? 16 : undefined }}>€</span>
       <input
         className="input mono"
         type="number"
@@ -700,7 +714,8 @@ function EditEuro({ value, onSave }) {
         onFocus={focus}
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-        style={{ width: 90, textAlign: 'right', padding: '4px 8px' }}
+        style={{ width: bigger ? 110 : 90, textAlign: 'right', padding: bigger ? '6px 10px' : '4px 8px',
+          fontSize: bigger ? 16 : undefined, fontWeight: bigger ? 600 : undefined }}
       />
     </span>
   );
