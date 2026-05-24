@@ -190,15 +190,14 @@ export default function Dettaglio() {
           <div>
             <div className="row center" style={{ gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
               <span className="mono" style={{ color: 'var(--hf-text-3)', fontSize: 13 }}>#{t.numero}</span>
+              <EditData key={`d-${t.created_at}`} value={t.created_at} onSave={saveDataIntervento} />
               <Badge tone={t.stato_tone}>{t.stato}</Badge>
               <UbicazioneBadge ubicazione={t.ubicazione} onChange={(v) => saveCosti({ ubicazione: v })} />
               {pezzi.length > 0 && <Badge tone="gray" dot={false}>{pezzi.length} pezz{pezzi.length > 1 ? 'i' : 'o'} · €{pezziVendita}</Badge>}
             </div>
             <div className="page-title">{t.dispositivo} · {t.cliente?.nome || '—'}</div>
             <div className="page-sub row center" style={{ gap: 6, flexWrap: 'wrap' }}>
-              <span>Aperto</span>
-              <EditData key={`d-${t.created_at}`} value={t.created_at} onSave={saveDataIntervento} />
-              <span>· Tecnico {t.tecnico?.nome || '—'} · Tel {t.cliente?.tel || '—'}</span>
+              <span>Tecnico {t.tecnico?.nome || '—'} · Tel {t.cliente?.tel || '—'}</span>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
