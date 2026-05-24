@@ -153,9 +153,9 @@ function StatoCell({ value, onChange }) {
     e.stopPropagation();
     if (!open && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
-      const popW = 180;
+      const popW = Math.min(window.innerWidth - 16, 760);
       const left = Math.max(8, Math.min(r.left, window.innerWidth - popW - 8));
-      setPos({ top: r.bottom + 4, left });
+      setPos({ top: r.bottom + 4, left, width: popW });
     }
     setOpen(o => !o);
   }
@@ -180,16 +180,19 @@ function StatoCell({ value, onChange }) {
             onClick={e => e.stopPropagation()}
             style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 901,
               background: 'var(--hf-surface)', border: '1px solid var(--hf-border)', borderRadius: 8,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.18)', padding: 6, minWidth: 180 }}
+              boxShadow: '0 8px 24px rgba(0,0,0,0.18)', padding: 6,
+              display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 4,
+              maxWidth: pos.width }}
           >
             {STATI.map(s => (
               <button
                 key={s.stato}
                 type="button"
                 onClick={() => { onChange(s.stato); setOpen(false); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 6px',
+                style={{ padding: '4px 6px',
                   background: s.stato === value ? 'var(--hf-surface-2)' : 'transparent',
-                  border: 'none', borderRadius: 5, cursor: 'pointer' }}
+                  border: s.stato === value ? '1px solid var(--hf-border)' : '1px solid transparent',
+                  borderRadius: 5, cursor: 'pointer' }}
               >
                 <Badge tone={s.tone}>{s.stato}</Badge>
               </button>
