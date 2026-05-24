@@ -40,6 +40,11 @@ export default function Dashboard() {
   const attivi = list.filter(i => ATTIVI.includes(i.stato));
   const pronti = list.filter(i => i.stato === 'Pronto');
   const attesaPezzi = list.filter(i => i.stato === 'Attesa pezzi');
+  const inLavorazione = list.filter(i => i.stato === 'In lavorazione').map(i => {
+    const pezzi = i.pezzi || [];
+    const arrivati = pezzi.filter(p => p.stato === 'A stock').length;
+    return { ...i, _pezziTot: pezzi.length, _pezziArrivati: arrivati };
+  });
   const sottoscorta = mag.filter(a => a.stock < a.min_stock);
 
   const periodList = list.filter(i => inRange(i.created_at, range, now));
@@ -186,6 +191,44 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="row between" style={{ marginBottom: 12 }}>
+                <div className="card-title">In lavorazione</div>
+                <Badge tone="violet">{inLavorazione.length}</Badge>
+              </div>
+              <div className="col" style={{ gap: 10 }}>
+                {inLavorazione.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--hf-text-3)' }}>Nessun intervento in lavorazione.</div>
+                )}
+                {inLavorazione.slice(0, 5).map(r => {
+                  const tot = r._pezziTot, arr = r._pezziArrivati;
+                  const completo = tot === 0 || arr === tot;
+                  return (
+                    <div key={r.id} className="row center" style={{ gap: 10, cursor: 'pointer' }} onClick={() => navigate(`/interventi/${r.id}`)}>
+                      <Avatar name={r.cliente?.nome || '?'} tone="violet" />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{r.cliente?.nome || '—'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>{r.dispositivo} · #{r.numero}</div>
+                      </div>
+                      {tot > 0 ? (
+                        <Badge tone={completo ? 'green' : 'amber'} dot={false}>
+                          {completo ? `${tot} pezz${tot > 1 ? 'i' : 'o'} ✓` : `${arr}/${tot} arrivati`}
+                        </Badge>
+                      ) : (
+                        <Badge tone="gray" dot={false}>senza pezzi</Badge>
+                      )}
+                    </div>
+                  );
+                })}
+                {inLavorazione.length > 5 && (
+                  <div onClick={() => navigate('/interventi?stato=In lavorazione')}
+                    style={{ fontSize: 12, color: 'var(--hf-accent)', cursor: 'pointer', textAlign: 'center', paddingTop: 4 }}>
+                    Vedi tutti ({inLavorazione.length}) →
+                  </div>
+                )}
               </div>
             </div>
 
