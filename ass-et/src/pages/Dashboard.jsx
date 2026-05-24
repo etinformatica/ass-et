@@ -46,6 +46,34 @@ export default function Dashboard() {
   const ricaviStimati = periodList.reduce((s, i) => s + Number(i.totale_stimato || 0), 0);
   const margineStimato = periodList.reduce((s, i) => s + Number(i.margine_atteso || 0), 0);
 
+  // Incassi ultimi 7 giorni: per ogni intervento "Incassato" cerca la data dell'ultima
+  // attività di tipo "stato" che indica il passaggio a Incassato; fallback su created_at.
+  const incassiSettimana = (() => {
+    const giorni = [];
+    for (let k = 6; k >= 0; k--) {
+      const d = new Date(now); d.setDate(now.getDate() - k); d.setHours(0, 0, 0, 0);
+      giorni.push({ d, totale: 0 });
+    }
+    list.filter(i => i.stato === 'Incassato').forEach(i => {
+      const att = (i.attivita || [])
+        .filter(a => a.tipo === 'stato' && /Incassato/i.test(a.testo || ''))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+      const incassoDate = new Date(att?.created_at || i.created_at);
+      incassoDate.setHours(0, 0, 0, 0);
+      const slot = giorni.find(g => g.d.getTime() === incassoDate.getTime());
+      if (slot) slot.totale += Number(i.totale_stimato || 0);
+    });
+    const max = Math.max(...giorni.map(g => g.totale), 1);
+    const dow = ['D', 'L', 'M', 'M', 'G', 'V', 'S'];
+    return giorni.map((g, i) => ({
+      label: dow[g.d.getDay()],
+      totale: g.totale,
+      h: (g.totale / max) * 100,
+      isToday: i === 6,
+    }));
+  })();
+  const incassiSettimanaTot = incassiSettimana.reduce((s, g) => s + g.totale, 0);
+
   const rangeLabel = range === 'oggi' ? 'oggi'
     : range === 'settimana' ? 'ultimi 7 giorni'
     : MESI[now.getMonth()].toLowerCase();
@@ -164,16 +192,24 @@ export default function Dashboard() {
             <div className="card">
               <div className="row between" style={{ marginBottom: 12 }}>
                 <div className="card-title">Incassi settimana</div>
-                <span style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>stima</span>
+                <span className="mono" style={{ fontSize: 12, fontWeight: 600 }}>€ {incassiSettimanaTot.toFixed(2).replace('.', ',')}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'end', gap: 8, height: 80 }}>
-                {[40, 65, 35, 80, 55, 90, 72].map((h, i) => (
-                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <div className={`chart-bar ${i === 6 ? 'accent' : ''}`} style={{ width: '100%', height: `${h}%` }} />
-                    <span className="mono" style={{ fontSize: 10, color: 'var(--hf-text-3)' }}>{['L', 'M', 'M', 'G', 'V', 'S', 'D'][i]}</span>
-                  </div>
-                ))}
-              </div>
+              {incassiSettimanaTot === 0 ? (
+                <div style={{ padding: '16px 8px', textAlign: 'center', fontSize: 12, color: 'var(--hf-text-3)' }}>
+                  Nessun intervento incassato negli ultimi 7 giorni.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'end', gap: 8, height: 90 }}>
+                  {incassiSettimana.map((g, i) => (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+                      title={`${g.label} · € ${g.totale.toFixed(2).replace('.', ',')}`}>
+                      <div className={`chart-bar ${g.isToday ? 'accent' : (g.totale === 0 ? 'muted' : '')}`}
+                        style={{ width: '100%', height: `${Math.max(g.h, g.totale > 0 ? 6 : 2)}%`, minHeight: 2 }} />
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--hf-text-3)' }}>{g.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="card" style={{ borderColor: 'var(--hf-amber)', background: 'var(--hf-amber-soft)' }}>
