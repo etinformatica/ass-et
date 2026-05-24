@@ -6,7 +6,7 @@ import { Modal, ConfirmDialog, Field } from '../components/Modal';
 import { useData } from '../lib/useData';
 import { useImpostazioni } from '../lib/useImpostazioni';
 import { interventiApi, magazzinoApi, fotoApi, fornitoriApi } from '../lib/api';
-import { STATI, STATUS_TRACK } from '../lib/stati';
+import { STATI, STATUS_TRACK, STATO_TONE } from '../lib/stati';
 
 export default function Dettaglio() {
   const { id } = useParams();
@@ -143,15 +143,23 @@ export default function Dettaglio() {
               const done = i < trackIdx, active = i === trackIdx, idle = i > trackIdx;
               return (
                 <div key={step} style={{ display: 'flex', alignItems: 'center', flex: i < arr.length - 1 ? 1 : 'none' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 90 }}>
+                  <button
+                    type="button"
+                    disabled={busy || active}
+                    onClick={() => changeStato(step, STATO_TONE[step] || 'gray')}
+                    title={active ? `Stato corrente: ${step}` : `Imposta stato: ${step}`}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 90,
+                      background: 'transparent', border: 'none', padding: 0, cursor: active || busy ? 'default' : 'pointer' }}
+                  >
                     <div style={{
                       width: 24, height: 24, borderRadius: '50%',
                       background: done ? 'var(--hf-green)' : active ? 'var(--hf-amber)' : 'var(--hf-surface-2)',
                       border: `2px solid ${done ? 'var(--hf-green)' : active ? 'var(--hf-amber)' : 'var(--hf-border-2)'}`,
                       color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
+                      transition: 'transform .12s ease',
                     }}>{done ? '✓' : active ? '●' : ''}</div>
                     <div style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: idle ? 'var(--hf-text-4)' : 'var(--hf-text)', textAlign: 'center' }}>{step}</div>
-                  </div>
+                  </button>
                   {i < arr.length - 1 && <div style={{ flex: 1, height: 2, background: done ? 'var(--hf-green)' : 'var(--hf-border)', marginBottom: 20, marginLeft: -4, marginRight: -4 }} />}
                 </div>
               );
