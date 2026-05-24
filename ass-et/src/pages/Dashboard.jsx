@@ -94,7 +94,7 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, minHeight: 0 }}>
+        <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, minHeight: 0 }}>
           <div className="card" style={{ padding: 0 }}>
             <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--hf-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontWeight: 600, fontSize: 14 }}>Interventi · {rangeLabel}</span>

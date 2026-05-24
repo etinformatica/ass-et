@@ -86,6 +86,12 @@ export function SearchBox({ placeholder = 'Cerca interventi, clienti, articoliâ€
 export function Topbar({ crumbs = [], right }) {
   return (
     <div className="topbar">
+      <button
+        type="button"
+        className="hamburger"
+        onClick={() => document.body.classList.toggle('sidebar-open')}
+        aria-label="Apri menu"
+      >â˜°</button>
       {crumbs.map((c, i, arr) => (
         <span key={i}>
           {i > 0 && <span className="topbar-sep" style={{ marginRight: 12 }}>/</span>}
@@ -94,7 +100,7 @@ export function Topbar({ crumbs = [], right }) {
       ))}
       <div className="topbar-spacer" />
       <SearchBox />
-      {right}
+      <div className="topbar-right">{right}</div>
     </div>
   );
 }

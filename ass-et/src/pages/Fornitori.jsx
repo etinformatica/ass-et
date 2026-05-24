@@ -97,7 +97,7 @@ export default function Fornitori() {
         )}
 
         {!fornitori.loading && !fornitori.error && list.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1.6fr' : '1fr', gap: 16, minHeight: 0 }}>
+          <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1.6fr' : '1fr', gap: 16, minHeight: 0 }}>
             <div className="table-wrap">
               <table className="data-table">
                 <thead><tr><th>Nome</th><th>Tel</th><th>P.IVA</th><th></th></tr></thead>

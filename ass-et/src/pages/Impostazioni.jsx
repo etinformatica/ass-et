@@ -73,7 +73,7 @@ function SettingsForm({ initial, onReload }) {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+        <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
           <div className="card">
             <div className="card-title" style={{ marginBottom: 14 }}>Tecnico / operatore</div>
             <div className="col" style={{ gap: 14 }}>

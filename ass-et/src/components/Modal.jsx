@@ -11,6 +11,7 @@ export function Modal({ title, onClose, children, footer, width = 480 }) {
   return (
     <div
       onClick={onClose}
+      className="modal-overlay"
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
         background: 'rgba(24,20,16,0.45)',
@@ -20,7 +21,7 @@ export function Modal({ title, onClose, children, footer, width = 480 }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="card"
+        className="card modal-card"
         style={{ width, maxWidth: '100%', padding: 0, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
       >
         <div

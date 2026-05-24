@@ -159,7 +159,7 @@ export default function Dettaglio() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, minHeight: 0 }}>
+        <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, minHeight: 0 }}>
           <div className="col" style={{ gap: 16 }}>
             <div className="card">
               <div className="row between" style={{ marginBottom: 10 }}>

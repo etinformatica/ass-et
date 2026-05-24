@@ -46,6 +46,7 @@ function Gate() {
           element={
             <div className="app-shell">
               <Sidebar />
+              <div className="sidebar-backdrop" onClick={() => document.body.classList.remove('sidebar-open')} />
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/interventi" element={<Interventi />} />

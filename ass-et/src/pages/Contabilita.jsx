@@ -113,7 +113,7 @@ export default function Contabilita() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
+            <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
               <div className="card">
                 <div className="row between" style={{ marginBottom: 14 }}>
                   <span style={{ fontWeight: 600, fontSize: 14 }}>Conto economico semplificato</span>

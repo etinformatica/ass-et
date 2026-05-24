@@ -126,7 +126,7 @@ export default function Accettazione() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 16 }}>
+        <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 16 }}>
           <div className="col" style={{ gap: 16 }}>
             {/* CLIENTE */}
             <div className="card">
@@ -182,7 +182,7 @@ export default function Accettazione() {
               <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
                 {DEVICE_TYPES.map(d => <span key={d} className={`pill ${deviceType === d ? 'active' : ''}`} onClick={() => setDeviceType(d)}>{d}</span>)}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1.5fr', gap: 10, marginBottom: 10 }}>
+              <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1.5fr', gap: 10, marginBottom: 10 }}>
                 <div><label className="field-label">Marca</label>
                   <Combo value={form.marca} onChange={(v) => set('marca', v)} options={marcheNote} placeholder="HP, Apple, Samsung…" />
                 </div>
@@ -191,7 +191,7 @@ export default function Accettazione() {
                 </div>
                 <div><label className="field-label">Seriale / IMEI</label><input className="input mono" value={form.seriale} onChange={e => set('seriale', e.target.value)} /></div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr', gap: 10 }}>
+              <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr', gap: 10 }}>
                 <div><label className="field-label">Accessori consegnati</label><input className="input" value={form.accessori} onChange={e => set('accessori', e.target.value)} placeholder="alimentatore, borsa…" /></div>
                 <div><label className="field-label">Stato estetico</label><input className="input" value={form.stato_estetico} onChange={e => set('stato_estetico', e.target.value)} placeholder="Buono — graffi" /></div>
                 <div><label className="field-label">Password</label><input className="input" value={form.password_cliente} onChange={e => set('password_cliente', e.target.value)} /></div>

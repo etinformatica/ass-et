@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Icon, Avatar, Btn } from './UI';
 import { useImpostazioni } from '../lib/useImpostazioni';
 import { supabase } from '../lib/supabase';
+import { closeSidebar } from '../lib/sidebar';
 
 const NAV = [
   { path: '/', label: 'Dashboard', icon: 'home', count: null },
@@ -33,6 +34,7 @@ export default function Sidebar() {
           key={path}
           to={path}
           end={path === '/'}
+          onClick={closeSidebar}
           className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
         >
           {({ isActive }) => (

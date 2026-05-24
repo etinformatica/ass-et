@@ -112,7 +112,7 @@ export default function Magazzino() {
               <div className="card kpi"><div className="kpi-label">Margine potenziale</div><div className="kpi-value sm">€ {(valoreVend - valoreCosto).toLocaleString('it-IT')}</div><span className="kpi-trend up">↑ su vendita stock</span></div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
+            <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
               <div className="card" style={{ padding: 0, borderColor: 'var(--hf-amber)' }}>
                 <div className="alert-banner">
                   <span style={{ fontSize: 14 }}>⚠</span>
