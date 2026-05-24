@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge, Btn, Avatar, Topbar, Icon, Pill } from '../components/UI';
 import { Loading, ErrorState, EmptyState } from '../components/States';
 import { ConfirmDialog } from '../components/Modal';
@@ -11,8 +11,11 @@ const FILTERS = ['Tutti', ...STATI.map(s => s.stato)];
 
 export default function Interventi() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialFilter = searchParams.get('stato') && FILTERS.includes(searchParams.get('stato'))
+    ? searchParams.get('stato') : 'Tutti';
   const { data, loading, error, reload } = useData(() => interventiApi.list(), []);
-  const [filter, setFilter] = useState('Tutti');
+  const [filter, setFilter] = useState(initialFilter);
   const [view, setView] = useState('Tabella');
   const [q, setQ] = useState('');
   const [toDelete, setToDelete] = useState(null);

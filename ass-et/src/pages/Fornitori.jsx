@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Badge, Btn, Topbar, Icon } from '../components/UI';
 import { Loading, ErrorState, EmptyState } from '../components/States';
 import { Modal, ConfirmDialog, Field } from '../components/Modal';
@@ -13,6 +13,7 @@ const EMPTY = { nome: '', tel: '', email: '', indirizzo: '', p_iva: '', note: ''
 export default function Fornitori() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const fornitori = useData(() => fornitoriApi.list(), []);
   const articoli = useData(() => magazzinoApi.list(), []);
   const [q, setQ] = useState('');
@@ -22,7 +23,7 @@ export default function Fornitori() {
   const [caricoModal, setCaricoModal] = useState(null); // null | { fornitoreId, ricezione? }
   const [ricezioneModal, setRicezioneModal] = useState(null); // null | pezzoIntervento
   const [reloadTick, setReloadTick] = useState(0);
-  const [tab, setTab] = useState('anagrafica'); // 'anagrafica' | 'ordinare'
+  const [tab, setTab] = useState(searchParams.get('tab') === 'ordinare' ? 'ordinare' : 'anagrafica');
 
   const list = fornitori.data || [];
   const filtered = list.filter(f => {
