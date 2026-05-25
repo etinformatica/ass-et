@@ -121,14 +121,19 @@ export const fornitoriApi = {
 };
 
 // ---------------- PEZZI INTERVENTI ----------------
-// API trasversale ai pezzi di tutti gli interventi (vista "Da ordinare").
+// API trasversale ai pezzi di tutti gli interventi (viste "Da ordinare" / "Ordinato").
 export const pezziApi = {
-  async listDaOrdinare() {
+  async listByStato(stato) {
+    const stati = Array.isArray(stato) ? stato : [stato];
     return chk(await supabase
       .from('intervento_pezzi')
       .select('*, intervento:interventi!inner(id, numero, dispositivo, cliente:clienti(id, nome, tel)), fornitore_rel:fornitori(id, nome)')
-      .eq('stato', 'Da ordinare')
+      .in('stato', stati)
       .order('created_at'));
+  },
+  // Retro-compatibilità: alcune chiamate usano ancora listDaOrdinare.
+  async listDaOrdinare() {
+    return this.listByStato('Da ordinare');
   },
 };
 

@@ -97,10 +97,20 @@ export default function Fornitori() {
         <div className="tabs">
           <div className={`tab ${tab === 'anagrafica' ? 'active' : ''}`} onClick={() => setTab('anagrafica')}>Anagrafica</div>
           <div className={`tab ${tab === 'ordinare' ? 'active' : ''}`} onClick={() => setTab('ordinare')}>Da ordinare</div>
+          <div className={`tab ${tab === 'ordinato' ? 'active' : ''}`} onClick={() => setTab('ordinato')}>Ordinato · in arrivo</div>
         </div>
 
         {tab === 'ordinare' && (
           <DaOrdinareView
+            stato="Da ordinare"
+            fornitori={list}
+            onRicevuto={(p) => setRicezioneModal(p)}
+            reloadKey={reloadTick}
+          />
+        )}
+        {tab === 'ordinato' && (
+          <DaOrdinareView
+            stato="Ordinato"
             fornitori={list}
             onRicevuto={(p) => setRicezioneModal(p)}
             reloadKey={reloadTick}
@@ -613,9 +623,10 @@ function FornitoreForm({ initial, onClose, onSave, busy }) {
 // Vista "Da ordinare": pezzi intervento con stato="Da ordinare",
 // raggruppati per fornitore (suggerito o "Senza fornitore").
 // ============================================================
-function DaOrdinareView({ onRicevuto, reloadKey }) {
-  const pezzi = useData(() => pezziApi.listDaOrdinare(), [reloadKey]);
+function DaOrdinareView({ stato = 'Da ordinare', onRicevuto, reloadKey }) {
+  const pezzi = useData(() => pezziApi.listByStato(stato), [reloadKey, stato]);
   const list = pezzi.data || [];
+  const isOrdinato = stato === 'Ordinato';
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -651,8 +662,10 @@ function DaOrdinareView({ onRicevuto, reloadKey }) {
     return (
       <div className="card">
         <EmptyState
-          title="Nessun pezzo da ordinare"
-          sub="Quando in un intervento aggiungi un pezzo non a stock (o un pezzo generico), compare qui."
+          title={isOrdinato ? 'Nessun pezzo in arrivo' : 'Nessun pezzo da ordinare'}
+          sub={isOrdinato
+            ? 'I pezzi compaiono qui quando li marchi come "Ordinato" dal dettaglio intervento.'
+            : 'Quando in un intervento aggiungi un pezzo non a stock (o un pezzo generico), compare qui.'}
         />
       </div>
     );
@@ -661,7 +674,7 @@ function DaOrdinareView({ onRicevuto, reloadKey }) {
   return (
     <div className="col" style={{ gap: 14 }}>
       <div style={{ fontSize: 13, color: 'var(--hf-text-3)' }}>
-        {list.length} pezz{list.length > 1 ? 'i' : 'o'} da ordinare · raggruppati per fornitore suggerito.
+        {list.length} pezz{list.length > 1 ? 'i' : 'o'} {isOrdinato ? 'in arrivo' : 'da ordinare'} · raggruppati per fornitore.
         Clicca "Arrivato" quando ricevi il pezzo per registrare il carico e aggiornare l'intervento.
       </div>
       {groups.map(g => (

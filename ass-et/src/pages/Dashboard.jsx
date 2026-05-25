@@ -26,7 +26,7 @@ export default function Dashboard() {
   const { tecnicoNome } = useImpostazioni();
   const interventi = useData(() => interventiApi.list(), []);
   const magazzino = useData(() => magazzinoApi.list(), []);
-  const daOrdinare = useData(() => pezziApi.listDaOrdinare(), []);
+  const inArrivo = useData(() => pezziApi.listByStato(['Da ordinare', 'Ordinato']), []);
   const [range, setRange] = useState('settimana');
 
   if (interventi.loading || magazzino.loading)
@@ -117,7 +117,7 @@ export default function Dashboard() {
             { l: 'Interventi attivi', v: String(attivi.length), t: 'flat', d: `${list.length} totali`, to: '/interventi' },
             { l: 'Pronti per ritiro', v: String(pronti.length), t: 'up', d: 'azione', to: '/interventi?stato=Pronto' },
             { l: 'In attesa pezzi', v: String(attesaPezzi.length), t: 'down', d: 'da seguire', to: '/interventi?stato=Attesa+pezzi' },
-            { l: 'Pezzi da ordinare', v: String((daOrdinare.data || []).length), t: 'flat', d: 'apri lista', to: '/fornitori?tab=ordinare' },
+            { l: 'Pezzi in arrivo', v: String((inArrivo.data || []).length), t: 'flat', d: 'da ordinare + ordinati', to: '/fornitori?tab=ordinare' },
             { l: 'Ricavi stimati', v: `€ ${ricaviStimati.toLocaleString('it-IT')}`, t: 'up', d: rangeLabel },
             { l: 'Margine atteso', v: `€ ${margineStimato.toLocaleString('it-IT')}`, t: 'up', d: rangeLabel },
           ].map(k => (

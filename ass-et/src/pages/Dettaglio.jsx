@@ -16,6 +16,7 @@ export default function Dettaglio() {
   const [statoModal, setStatoModal] = useState(false);
   const [notaModal, setNotaModal] = useState(false);
   const [pezzoModal, setPezzoModal] = useState(false);
+  const [ordinaPezzo, setOrdinaPezzo] = useState(null);
   const [delModal, setDelModal] = useState(false);
   const [caricoPezzo, setCaricoPezzo] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -133,8 +134,8 @@ export default function Dettaglio() {
           fornitore: form.fornitore_nome || '',
         });
         magazzino_id = articolo.id;
-        await interventiApi.updatePezzo(p.id, { magazzino_id, stato: 'A stock', stato_tone: 'green' });
       }
+      await interventiApi.updatePezzo(p.id, { magazzino_id, stato: 'A stock', stato_tone: 'green' });
       await carichiApi.create({
         magazzino_id,
         fornitore_id: form.fornitore_id || null,
@@ -152,6 +153,26 @@ export default function Dettaglio() {
         testo: `Carico registrato: ${p.nome} · Fatt. ${form.numero_fattura || '—'} · ${form.fornitore_nome || 'fornitore non assegnato'}`,
       });
       setCaricoPezzo(null);
+      reload();
+    } catch (e) { alert('Errore: ' + e.message); }
+  }
+
+  async function saveOrdinaPezzo(form) {
+    try {
+      const p = ordinaPezzo;
+      await interventiApi.updatePezzo(p.id, {
+        stato: 'Ordinato',
+        stato_tone: 'violet',
+        fornitore_id: form.fornitore_id || null,
+        data_ordine: form.data_ordine,
+        riferimento_ordine: form.riferimento_ordine?.trim() || null,
+      });
+      await interventiApi.addAttivita(t.id, {
+        autore: tecnicoNome,
+        tipo: 'nota',
+        testo: `Pezzo ordinato: ${p.nome} · ${form.fornitore_nome || 'fornitore non assegnato'}${form.riferimento_ordine ? ` · rif. ${form.riferimento_ordine}` : ''}`,
+      });
+      setOrdinaPezzo(null);
       reload();
     } catch (e) { alert('Errore: ' + e.message); }
   }
@@ -299,10 +320,18 @@ export default function Dettaglio() {
                         </span></td>
                         <td><Badge tone={p.stato_tone}>{p.stato}</Badge></td>
                         <td style={{ whiteSpace: 'nowrap' }}>
-                          <button className="btn ghost sm" title="Registra carico (fattura/data/fornitore)"
-                            style={{ padding: 4 }} onClick={() => setCaricoPezzo(p)}>
-                            <Icon name="box" />
-                          </button>
+                          {p.stato === 'Da ordinare' && (
+                            <button className="btn ghost sm" title="Marca come ordinato (data + rif. ordine)"
+                              style={{ padding: '4px 6px', fontSize: 13, lineHeight: 1 }} onClick={() => setOrdinaPezzo(p)}>
+                              🛒
+                            </button>
+                          )}
+                          {p.stato !== 'A stock' && (
+                            <button className="btn ghost sm" title="Registra arrivo (fattura/data/fornitore)"
+                              style={{ padding: 4 }} onClick={() => setCaricoPezzo(p)}>
+                              <Icon name="box" />
+                            </button>
+                          )}
                           <button className="btn ghost sm" title="Elimina pezzo"
                             style={{ padding: 4 }} onClick={() => deletePezzo(p)}>
                             <Icon name="trash" />
@@ -452,6 +481,7 @@ export default function Dettaglio() {
       {notaModal && <NotaModal interventoId={t.id} autoreDefault={tecnicoNome} onClose={() => setNotaModal(false)} onSaved={() => { setNotaModal(false); reload(); }} />}
       {pezzoModal && <PezzoModal interventoId={t.id} onClose={() => setPezzoModal(false)} onSaved={() => { setPezzoModal(false); reload(); }} />}
       {caricoPezzo && <CaricoPezzoModal pezzo={caricoPezzo} onClose={() => setCaricoPezzo(null)} onSave={saveCaricoPezzo} />}
+      {ordinaPezzo && <OrdinaPezzoModal pezzo={ordinaPezzo} onClose={() => setOrdinaPezzo(null)} onSave={saveOrdinaPezzo} />}
       {delModal && <ConfirmDialog message={`Eliminare l'intervento #${t.numero}? Operazione irreversibile.`} onConfirm={doDelete} onClose={() => setDelModal(false)} busy={busy} />}
     </main>
   );
@@ -637,9 +667,16 @@ function PezzoModal({ interventoId, onClose, onSaved }) {
     fornitore_id: '', note: '',
   });
 
+  // --- tab Recuperato/usato
+  const [rec, setRec] = useState({
+    nome: '', descrizione: '', qty: 1,
+    costo_acq: '', prezzo_vend: '', note: '',
+  });
+
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const setG = (k, v) => setGen(s => ({ ...s, [k]: v }));
+  const setR = (k, v) => setRec(s => ({ ...s, [k]: v }));
 
   async function saveMagazzino() {
     const a = (mag || []).find(m => m.id === sel);
@@ -677,14 +714,36 @@ function PezzoModal({ interventoId, onClose, onSaved }) {
       onSaved();
     } catch (e) { alert('Errore: ' + e.message); setBusy(false); }
   }
-  const save = tab === 'magazzino' ? saveMagazzino : saveGenerico;
+  async function saveRecuperato() {
+    if (!rec.nome.trim()) { setErr('Il nome del pezzo è obbligatorio.'); return; }
+    if (!(Number(rec.qty) > 0)) { setErr('Quantità non valida.'); return; }
+    setBusy(true); setErr(null);
+    try {
+      const up = v => (typeof v === 'string' ? v.toUpperCase() : v);
+      await interventiApi.addPezzo(interventoId, {
+        magazzino_id: null,
+        sku: null,
+        nome: up(rec.nome.trim()),
+        descrizione: up(rec.descrizione.trim() || ''),
+        note: up(rec.note.trim() || ''),
+        qty: Number(rec.qty),
+        costo_acq: rec.costo_acq === '' ? 0 : Number(rec.costo_acq),
+        prezzo_vend: rec.prezzo_vend === '' ? 0 : Number(rec.prezzo_vend),
+        stato: 'A stock',
+        stato_tone: 'green',
+      });
+      onSaved();
+    } catch (e) { alert('Errore: ' + e.message); setBusy(false); }
+  }
+  const save = tab === 'magazzino' ? saveMagazzino : tab === 'generico' ? saveGenerico : saveRecuperato;
 
   return (
     <Modal title="Aggiungi pezzo" onClose={onClose} width={560}
       footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={save}>{busy ? 'Aggiungo…' : 'Aggiungi'}</Btn></>}>
       <div className="tabs">
         <div className={`tab ${tab === 'magazzino' ? 'active' : ''}`} onClick={() => setTab('magazzino')}>📦 Da magazzino</div>
-        <div className={`tab ${tab === 'generico' ? 'active' : ''}`} onClick={() => setTab('generico')}>✨ Generico · da ordinare</div>
+        <div className={`tab ${tab === 'generico' ? 'active' : ''}`} onClick={() => setTab('generico')}>🛒 Da ordinare</div>
+        <div className={`tab ${tab === 'recuperato' ? 'active' : ''}`} onClick={() => setTab('recuperato')}>🔧 Recuperato/usato</div>
       </div>
       {err && (
         <div className="card" style={{ borderColor: 'var(--hf-red)', background: 'var(--hf-red-soft)', color: 'var(--hf-red)', fontSize: 13, padding: '8px 12px' }}>
@@ -730,6 +789,27 @@ function PezzoModal({ interventoId, onClose, onSaved }) {
           </Field>
           <Field label="Note (facoltative)">
             <textarea className="input" rows={2} value={gen.note} onChange={e => setG('note', e.target.value)} placeholder="Link, specifiche, alternative…" style={{ resize: 'vertical' }} />
+          </Field>
+        </>
+      )}
+      {tab === 'recuperato' && (
+        <>
+          <div style={{ fontSize: 12, color: 'var(--hf-text-3)', marginTop: -4 }}>
+            Per pezzi già disponibili in laboratorio (recuperati da altri apparecchi, usati, fondi di magazzino). Nessuna fattura richiesta, va direttamente in "A stock".
+          </div>
+          <Field label="Nome pezzo">
+            <input className="input" value={rec.nome} onChange={e => setR('nome', e.target.value)} placeholder="Es: Vetro fotocamera iPhone 14 Pro" autoFocus />
+          </Field>
+          <Field label="Descrizione (facoltativa)">
+            <input className="input" value={rec.descrizione} onChange={e => setR('descrizione', e.target.value)} placeholder="Stato, provenienza, modello…" />
+          </Field>
+          <div className="responsive-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <Field label="Quantità"><input className="input mono" type="number" min={1} value={rec.qty} onChange={e => setR('qty', e.target.value)} /></Field>
+            <Field label="Costo € cad."><input className="input mono" type="number" step="0.01" value={rec.costo_acq} onChange={e => setR('costo_acq', e.target.value)} placeholder="0,00" /></Field>
+            <Field label="Prezzo vendita € cad."><input className="input mono" type="number" step="0.01" value={rec.prezzo_vend} onChange={e => setR('prezzo_vend', e.target.value)} placeholder="0,00" /></Field>
+          </div>
+          <Field label="Note (facoltative)">
+            <textarea className="input" rows={2} value={rec.note} onChange={e => setR('note', e.target.value)} placeholder="Provenienza, condizioni, garanzia…" style={{ resize: 'vertical' }} />
           </Field>
         </>
       )}
@@ -835,6 +915,56 @@ function CaricoPezzoModal({ pezzo, onClose, onSave }) {
               onChange={e => set('costo_acq', e.target.value)}
               onFocus={e => { if (Number(f.costo_acq) === 0) set('costo_acq', ''); e.currentTarget.select(); }}
               onBlur={() => { if (f.costo_acq === '') set('costo_acq', 0); }} />
+          </Field>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function OrdinaPezzoModal({ pezzo, onClose, onSave }) {
+  const { data: fornitori } = useData(() => fornitoriApi.list(), []);
+  const oggi = new Date().toISOString().slice(0, 10);
+  const [f, setF] = useState({
+    fornitore_id: pezzo.fornitore_id || '',
+    data_ordine: oggi,
+    riferimento_ordine: '',
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+
+  async function submit() {
+    if (!f.fornitore_id) { alert('Seleziona il fornitore.'); return; }
+    const fornitoreSel = (fornitori || []).find(x => x.id === f.fornitore_id);
+    setBusy(true);
+    await onSave({ ...f, fornitore_nome: fornitoreSel?.nome || '' });
+    setBusy(false);
+  }
+
+  return (
+    <Modal
+      title={`Marca come ordinato — ${pezzo.nome}`}
+      onClose={onClose}
+      footer={<><Btn onClick={onClose}>Annulla</Btn><Btn tone="accent" onClick={submit}>{busy ? 'Salvo…' : 'Conferma ordine'}</Btn></>}
+    >
+      <div style={{ fontSize: 12, color: 'var(--hf-text-3)', marginTop: -4 }}>
+        Registra l'ordine al fornitore. Quando arriverà userai "Registra arrivo" per inserire la fattura.
+      </div>
+      <Field label="Fornitore *">
+        <select className="input" value={f.fornitore_id} onChange={e => set('fornitore_id', e.target.value)}>
+          <option value="">— seleziona —</option>
+          {(fornitori || []).map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+        </select>
+      </Field>
+      <div className="row" style={{ gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Data ordine">
+            <input className="input" type="date" value={f.data_ordine} onChange={e => set('data_ordine', e.target.value)} />
+          </Field>
+        </div>
+        <div style={{ flex: 1.4 }}>
+          <Field label="Rif. ordine (facoltativo)">
+            <input className="input" value={f.riferimento_ordine} onChange={e => set('riferimento_ordine', e.target.value)} placeholder="es. AMZ-2026-12345" />
           </Field>
         </div>
       </div>
