@@ -6,6 +6,7 @@ import { useData } from '../lib/useData';
 import { useImpostazioni } from '../lib/useImpostazioni';
 import { clientiApi, tecniciApi, interventiApi } from '../lib/api';
 import { Combo } from '../components/Combo';
+import PezzoModal from '../components/PezzoModal';
 
 const DEVICE_TYPES = ['PC fisso', 'Notebook', 'Smartphone', 'Tablet', 'Stampante', 'Altro'];
 
@@ -26,6 +27,8 @@ export default function Accettazione() {
     stato_estetico: '', password_cliente: '', priorita: 'Normale',
     max_preventivo: '', tecnico_id: '', ubicazione: 'IN LABORATORIO',
   });
+  const [pezziDraft, setPezziDraft] = useState([]);
+  const [pezzoModal, setPezzoModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -88,6 +91,9 @@ export default function Accettazione() {
       await interventiApi.addAttivita(intervento.id, {
         autore: tecnicoNome, tipo: 'accettazione', testo: 'Intervento accettato al banco.',
       });
+      for (const p of pezziDraft) {
+        await interventiApi.addPezzo(intervento.id, p);
+      }
       navigate(`/interventi/${intervento.id}`);
     } catch (e) {
       setErr(e.message);
@@ -209,6 +215,37 @@ export default function Accettazione() {
                 ))}
               </div>
             </div>
+
+            {/* PEZZI */}
+            <div className="card">
+              <div className="row between" style={{ marginBottom: 12 }}>
+                <div className="row center" style={{ gap: 8 }}><StepDot n={4} /><span style={{ fontWeight: 600, fontSize: 15 }}>Pezzi previsti (facoltativo)</span></div>
+                <Btn size="sm" icon="plus" onClick={() => setPezzoModal(true)}>Aggiungi pezzo</Btn>
+              </div>
+              {pezziDraft.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--hf-text-3)' }}>
+                  Se sai già quali pezzi serviranno, aggiungili qui. Verranno creati al salvataggio dell'intervento. Puoi anche aggiungerli più tardi dal dettaglio.
+                </div>
+              ) : (
+                <div className="col" style={{ gap: 6 }}>
+                  {pezziDraft.map((p, i) => (
+                    <div key={i} className="row center" style={{ gap: 10, padding: '8px 10px', background: 'var(--hf-surface)', border: '1px solid var(--hf-border)', borderRadius: 6 }}>
+                      <Badge tone={p.stato_tone} dot={false}>{p.stato}</Badge>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{p.nome}</div>
+                        {p.descrizione && <div style={{ fontSize: 11, color: 'var(--hf-text-3)' }}>{p.descrizione}</div>}
+                      </div>
+                      <span className="mono" style={{ fontSize: 12, color: 'var(--hf-text-3)' }}>q.{p.qty}</span>
+                      <span className="mono" style={{ fontSize: 12 }}>€ {Number(p.prezzo_vend || 0).toFixed(2).replace('.', ',')}</span>
+                      <button className="btn ghost sm" title="Rimuovi" style={{ padding: 4 }}
+                        onClick={() => setPezziDraft(d => d.filter((_, j) => j !== i))}>
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* RIGHT */}
@@ -268,6 +305,16 @@ export default function Accettazione() {
           </div>
         </div>
       </div>
+
+      {pezzoModal && (
+        <PezzoModal
+          onClose={() => setPezzoModal(false)}
+          onCommit={async (p) => {
+            setPezziDraft(d => [...d, p]);
+            setPezzoModal(false);
+          }}
+        />
+      )}
     </main>
   );
 }
